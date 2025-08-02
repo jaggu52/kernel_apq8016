@@ -5,6 +5,7 @@
 
 /dts-v1/;
 
+//dragonboard
 #include "apq8016-sbc.dtsi"
 
 / {

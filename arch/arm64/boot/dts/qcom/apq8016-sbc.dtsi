@@ -10,6 +10,7 @@
 #include <dt-bindings/pinctrl/qcom,pmic-mpp.h>
 #include <dt-bindings/sound/apq8016-lpass.h>
 
+//dragonboard
 / {
 	aliases {
 		serial0 = &blsp1_uart2;

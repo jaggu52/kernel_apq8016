@@ -3,6 +3,7 @@
 #include "msm8916.dtsi"
 #include "pm8916.dtsi"
 
+//dragonboard
 &camss {
 	vdda-supply = <&pm8916_l2>;
 };

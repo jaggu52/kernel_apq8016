@@ -633,12 +633,12 @@ static int msm_hdmi_dev_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id msm_hdmi_dt_match[] = {
-	{ .compatible = "qcom,hdmi-tx-8996", .data = &hdmi_tx_8996_config },
-	{ .compatible = "qcom,hdmi-tx-8994", .data = &hdmi_tx_8994_config },
-	{ .compatible = "qcom,hdmi-tx-8084", .data = &hdmi_tx_8084_config },
-	{ .compatible = "qcom,hdmi-tx-8974", .data = &hdmi_tx_8974_config },
-	{ .compatible = "qcom,hdmi-tx-8960", .data = &hdmi_tx_8960_config },
-	{ .compatible = "qcom,hdmi-tx-8660", .data = &hdmi_tx_8660_config },
+	{ .compatible = "noqcom,hdmi-tx-8996", .data = &hdmi_tx_8996_config },
+	{ .compatible = "noqcom,hdmi-tx-8994", .data = &hdmi_tx_8994_config },
+	{ .compatible = "noqcom,hdmi-tx-8084", .data = &hdmi_tx_8084_config },
+	{ .compatible = "noqcom,hdmi-tx-8974", .data = &hdmi_tx_8974_config },
+	{ .compatible = "noqcom,hdmi-tx-8960", .data = &hdmi_tx_8960_config },
+	{ .compatible = "noqcom,hdmi-tx-8660", .data = &hdmi_tx_8660_config },
 	{}
 };
 

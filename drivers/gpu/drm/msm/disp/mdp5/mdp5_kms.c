@@ -643,6 +643,7 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 		}
 
 		kms->aspace = aspace;
+		dev_info(&pdev->dev, "APQ8016 supports IOMMU!\n");
 	} else {
 		DRM_DEV_INFO(&pdev->dev,
 			 "no iommu, fallback to phys contig buffers for scanout\n");
@@ -831,6 +832,8 @@ static int mdp5_init(struct platform_device *pdev, struct drm_device *dev)
 	u32 major, minor;
 	int ret;
 
+	dev_info(&pdev->dev, "APQ8016 HW has MDP5!\n");
+
 	mdp5_kms = devm_kzalloc(&pdev->dev, sizeof(*mdp5_kms), GFP_KERNEL);
 	if (!mdp5_kms) {
 		ret = -ENOMEM;
@@ -909,6 +912,7 @@ static int mdp5_init(struct platform_device *pdev, struct drm_device *dev)
 			mdp5_kms->smp = NULL;
 			goto fail;
 		}
+		dev_info(&pdev->dev,"APQ8016 supports Shared Memory Pool!\n");
 	}
 
 	mdp5_kms->ctlm = mdp5_ctlm_init(dev, mdp5_kms->mmio, mdp5_kms->cfg);

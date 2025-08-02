@@ -164,12 +164,14 @@ struct mdp5_encoder {
 };
 #define to_mdp5_encoder(x) container_of(x, struct mdp5_encoder, base)
 
+//Register write function
 static inline void mdp5_write(struct mdp5_kms *mdp5_kms, u32 reg, u32 data)
 {
 	WARN_ON(mdp5_kms->enable_count <= 0);
 	msm_writel(data, mdp5_kms->mmio + reg);
 }
 
+//Register Read function
 static inline u32 mdp5_read(struct mdp5_kms *mdp5_kms, u32 reg)
 {
 	WARN_ON(mdp5_kms->enable_count <= 0);

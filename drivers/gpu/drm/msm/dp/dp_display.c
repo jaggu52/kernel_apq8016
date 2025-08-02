@@ -117,7 +117,7 @@ struct dp_display_private {
 };
 
 static const struct of_device_id dp_dt_match[] = {
-	{.compatible = "qcom,sc7180-dp"},
+	{.compatible = "noqcom,sc7180-dp"},
 	{}
 };
 

@@ -110,7 +110,7 @@ static int edp_dev_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dt_match[] = {
-	{ .compatible = "qcom,mdss-edp" },
+	{ .compatible = "noqcom,mdss-edp" },
 	{}
 };
 

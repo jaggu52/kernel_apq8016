@@ -348,10 +348,10 @@ static int msm_drm_uninit(struct device *dev)
 	msm_perf_debugfs_cleanup(priv);
 	msm_rd_debugfs_cleanup(priv);
 
-#ifdef CONFIG_DRM_FBDEV_EMULATION
-	if (fbdev && priv->fbdev)
-		msm_fbdev_free(ddev);
-#endif
+//#ifdef CONFIG_DRM_FBDEV_EMULATION
+//	if (fbdev && priv->fbdev)
+//		msm_fbdev_free(ddev);
+//#endif
 
 	msm_disp_snapshot_destroy(ddev);
 
@@ -637,10 +637,10 @@ static int msm_drm_init(struct device *dev, const struct drm_driver *drv)
 	}
 	drm_mode_config_reset(ddev);
 
-#ifdef CONFIG_DRM_FBDEV_EMULATION
-	if (kms && fbdev)
-		priv->fbdev = msm_fbdev_init(ddev);
-#endif
+//#ifdef CONFIG_DRM_FBDEV_EMULATION
+//	if (kms && fbdev)
+//		priv->fbdev = msm_fbdev_init(ddev);
+//#endif
 
 	ret = msm_debugfs_late_init(ddev);
 	if (ret)
@@ -1369,6 +1369,8 @@ static int msm_pdev_probe(struct platform_device *pdev)
 {
 	struct component_match *match = NULL;
 	int ret;
+
+	DRM_INFO("%s - %d\n", __func__, __LINE__);
 
 	if (get_mdp_ver(pdev)) {
 		ret = add_display_components(pdev, &match);

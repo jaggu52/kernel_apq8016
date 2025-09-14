@@ -506,6 +506,7 @@ static int msm_drm_init(struct device *dev, const struct drm_driver *drv)
 	ddev->dev_private = priv;
 	priv->dev = ddev;
 
+	DRM_INFO("%s - %d\n", __func__, __LINE__);
 	switch (get_mdp_ver(pdev)) {
 	case KMS_MDP5:
 		ret = mdp5_mdss_init(ddev);
@@ -514,6 +515,7 @@ static int msm_drm_init(struct device *dev, const struct drm_driver *drv)
 		ret = dpu_mdss_init(ddev);
 		break;
 	default:
+		DRM_INFO("%s - %d\n", __func__, __LINE__);
 		ret = 0;
 		break;
 	}
@@ -1275,6 +1277,7 @@ static int add_display_components(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	int ret;
 
+	DRM_INFO("%s - %d\n", __func__, __LINE__);
 	/*
 	 * MDP5/DPU based devices don't have a flat hierarchy. There is a top
 	 * level parent: MDSS, and children: MDP5/DPU, DSI, HDMI, eDP etc.
@@ -1284,6 +1287,7 @@ static int add_display_components(struct platform_device *pdev,
 	switch (get_mdp_ver(pdev)) {
 	case KMS_MDP5:
 	case KMS_DPU:
+		DRM_INFO("%s - %d\n", __func__, __LINE__);
 		ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 		if (ret) {
 			DRM_DEV_ERROR(dev, "failed to populate children devices\n");
@@ -1348,6 +1352,7 @@ static int add_gpu_components(struct device *dev,
 
 static int msm_drm_bind(struct device *dev)
 {
+	DRM_INFO("%s - %d\n", __func__, __LINE__);
 	return msm_drm_init(dev, &msm_driver);
 }
 
@@ -1378,9 +1383,12 @@ static int msm_pdev_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	ret = add_gpu_components(&pdev->dev, &match);
-	if (ret)
-		goto fail;
+	DRM_INFO("%s - %d\n", __func__, __LINE__);
+	//ret = add_gpu_components(&pdev->dev, &match);
+	//if (ret) {
+	//	DRM_INFO("%s - %d\n", __func__, __LINE__);
+	//	goto fail;
+	//}
 
 	/* on all devices that I am aware of, iommu's which can map
 	 * any address the cpu can see are used:
@@ -1396,6 +1404,7 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	return 0;
 
 fail:
+	DRM_INFO("%s - %d\n", __func__, __LINE__);
 	of_platform_depopulate(&pdev->dev);
 	return ret;
 }
@@ -1449,12 +1458,12 @@ static int __init msm_drm_register(void)
 
 	DBG("init");
 	msm_mdp_register();
-	msm_dpu_register();
+	//msm_dpu_register();
 	msm_dsi_register();
-	msm_edp_register();
-	msm_hdmi_register();
-	msm_dp_register();
-	adreno_register();
+	//msm_edp_register();
+	//msm_hdmi_register();
+	//msm_dp_register();
+	//adreno_register();
 	return platform_driver_register(&msm_platform_driver);
 }
 
@@ -1462,13 +1471,13 @@ static void __exit msm_drm_unregister(void)
 {
 	DBG("fini");
 	platform_driver_unregister(&msm_platform_driver);
-	msm_dp_unregister();
-	msm_hdmi_unregister();
-	adreno_unregister();
-	msm_edp_unregister();
+	//msm_dp_unregister();
+	//msm_hdmi_unregister();
+	//adreno_unregister();
+	//msm_edp_unregister();
 	msm_dsi_unregister();
 	msm_mdp_unregister();
-	msm_dpu_unregister();
+	//msm_dpu_unregister();
 }
 
 module_init(msm_drm_register);

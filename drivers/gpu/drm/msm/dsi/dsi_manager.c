@@ -47,11 +47,15 @@ static int dsi_mgr_parse_of(struct device_node *np, int id)
 {
 	struct msm_dsi_manager *msm_dsim = &msm_dsim_glb;
 
+	DSI_MGR_DBG("Parsing DSI node %d", id);
+
 	/* We assume 2 dsi nodes have the same information of bonded dsi and
 	 * sync-mode, and only one node specifies master in case of bonded mode.
 	 */
-	if (!msm_dsim->is_bonded_dsi)
+	if (!msm_dsim->is_bonded_dsi) {
 		msm_dsim->is_bonded_dsi = of_property_read_bool(np, "qcom,dual-dsi-mode");
+		DSI_MGR_DBG("Bonded DSI mode: %s", msm_dsim->is_bonded_dsi ? "enabled" : "disabled");
+	}
 
 	if (msm_dsim->is_bonded_dsi) {
 		if (of_property_read_bool(np, "qcom,master-dsi"))

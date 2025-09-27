@@ -35,6 +35,8 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
 {
 	u32 ver;
 
+	DSI_HOST_DBG("Getting DSI version");
+
 	if (!major || !minor)
 		return -EINVAL;
 

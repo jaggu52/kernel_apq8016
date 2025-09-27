@@ -1191,6 +1191,8 @@ struct mdp5_cfg_handler *mdp5_cfg_init(struct mdp5_kms *mdp5_kms,
 	struct mdp5_cfg_platform *pconfig;
 	int i, ret = 0, num_handlers;
 
+	MDP5_DBG("Entry");
+
 	cfg_handler = kzalloc(sizeof(*cfg_handler), GFP_KERNEL);
 	if (unlikely(!cfg_handler)) {
 		ret = -ENOMEM;
@@ -1199,10 +1201,12 @@ struct mdp5_cfg_handler *mdp5_cfg_init(struct mdp5_kms *mdp5_kms,
 
 	switch (major) {
 	case 1:
+		MDP5_DBG("Major 1 - using cfg_handlers_v1");
 		cfg_handlers = cfg_handlers_v1;
 		num_handlers = ARRAY_SIZE(cfg_handlers_v1);
 		break;
 	case 3:
+		MDP5_DBG("Major 3 - using cfg_handlers_v3");
 		cfg_handlers = cfg_handlers_v3;
 		num_handlers = ARRAY_SIZE(cfg_handlers_v3);
 		break;
@@ -1235,6 +1239,46 @@ struct mdp5_cfg_handler *mdp5_cfg_init(struct mdp5_kms *mdp5_kms,
 	memcpy(&cfg_handler->config.platform, pconfig, sizeof(*pconfig));
 
 	DBG("MDP5: %s hw config selected", mdp5_cfg->name);
+	MDP5_DBG("MDP5: %s hw config selected", mdp5_cfg->name);
+    MDP5_DBG("mdp5_cfg_hw values");
+    MDP5_DBG("mdp.count = 1");
+    MDP5_DBG("mdp.base = 0x0");
+    MDP5_DBG("mdp.caps = MDP_CAP_SMP");
+    MDP5_DBG("smp.mmb_count = 8");
+    MDP5_DBG("smp.mmb_size = 8192");
+    MDP5_DBG("smp.clients = [SSPP_VIG0] = 1, [SSPP_DMA0] = 4");
+    MDP5_DBG("smp.clients = [SSPP_RGB0] = 7, [SSPP_RGB1] = 8");
+    MDP5_DBG("ctl.count = 5");
+    MDP5_DBG("ctl.base = { 0x01000, 0x01200, 0x01400, 0x01600, 0x01800 }");
+    MDP5_DBG("ctl.flush_hw_mask = 0x4003ffff");
+    MDP5_DBG("pipe_vig.count = 1");
+    MDP5_DBG("pipe_vig.base = 0x04000");
+    MDP5_DBG("pipe_vig.caps = MDP_PIPE_CAP_HFLIP | MDP_PIPE_CAP_VFLIP");
+    MDP5_DBG("pipe_vig.caps = MDP_PIPE_CAP_SCALE | MDP_PIPE_CAP_CSC");
+    MDP5_DBG("pipe_vig.caps = MDP_PIPE_CAP_DECIMATION");
+	MDP5_DBG("pipe_rgb.count = 2");
+	MDP5_DBG("pipe_rgb.base = { 0x14000, 0x16000 }");
+	MDP5_DBG("pipe_rgb.caps = MDP_PIPE_CAP_HFLIP | MDP_PIPE_CAP_VFLIP |");
+	MDP5_DBG("pipe_rgb.caps = MDP_PIPE_CAP_DECIMATION");
+	MDP5_DBG("pipe_dma.count = 1");
+	MDP5_DBG("pipe_dma.base = 0x24000");
+	MDP5_DBG("pipe_dma.caps = MDP_PIPE_CAP_HFLIP | MDP_PIPE_CAP_VFLIP");
+	MDP5_DBG("lm.count = 2");
+	MDP5_DBG("lm.base = { 0x44000, 0x47000 }");
+	MDP5_DBG("lm.instances = { { .id = 0, .pp = 0, .dspp = 0, .caps = MDP_LM_CAP_DISPLAY, },");
+	MDP5_DBG("lm.instances = { .id = 3, .pp = -1, .dspp = -1, .caps = MDP_LM_CAP_WB }, }");
+	MDP5_DBG("lm.nb_stages = 8");
+	MDP5_DBG("lm.max_width = 2048");
+	MDP5_DBG("lm.max_height = 0xFFFF");
+	MDP5_DBG("dspp.count = 1");
+	MDP5_DBG("dspp.base = 0x54000");
+	MDP5_DBG("intf.base = { 0x00000, 0x6a800 }");
+	MDP5_DBG("intf.connect = {[0] = INTF_DISABLED, [1] = INTF_DSI,}");
+	MDP5_DBG("perf.ab_inefficiency = 100");
+	MDP5_DBG("perf.ib_inefficiency = 200");
+	MDP5_DBG("perf.clk_inefficiency = 105");
+	MDP5_DBG("max_clk = 320000000");
+	MDP5_DBG("");
 
 	return cfg_handler;
 
@@ -1249,6 +1293,7 @@ static struct mdp5_cfg_platform *mdp5_get_config(struct platform_device *dev)
 {
 	static struct mdp5_cfg_platform config = {};
 
+	MDP5_DBG("Get IOMMU information");
 	config.iommu = iommu_domain_alloc(&platform_bus_type);
 
 	return &config;

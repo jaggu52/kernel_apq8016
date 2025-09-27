@@ -480,6 +480,99 @@ void msm_writel(u32 data, void __iomem *addr);
 u32 msm_readl(const void __iomem *addr);
 void msm_rmw(void __iomem *addr, u32 mask, u32 or);
 
+/* Enhanced Debug Macros for APQ8016 Display Engine Analysis */
+#define MSM_DEBUG_ENABLE 1
+
+#if MSM_DEBUG_ENABLE
+/* Function entry/exit tracing */
+#define MSM_FUNC_ENTER(fmt, ...) \
+	pr_info("[MSM-FUNC] ENTER: %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MSM_FUNC_EXIT(fmt, ...) \
+	pr_info("[MSM-FUNC] EXIT:  %s() " fmt "\n", __func__, ##__VA_ARGS__)
+
+/* Component-specific debug prints */
+#define MSM_DRV_DBG(fmt, ...) \
+	pr_info("[MSM-DRV] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MSM_KMS_DBG(fmt, ...) \
+	pr_info("[MSM-KMS] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MSM_GPU_DBG(fmt, ...) \
+	pr_info("[MSM-GPU] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MSM_GEM_DBG(fmt, ...) \
+	pr_info("[MSM-GEM] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+
+/* MDP5 specific debug prints */
+#define MDP5_DBG(fmt, ...) \
+	pr_info("[MDP5] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MDP5_CRTC_DBG(fmt, ...) \
+	pr_info("[MDP5-CRTC] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MDP5_PLANE_DBG(fmt, ...) \
+	pr_info("[MDP5-PLANE] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MDP5_ENC_DBG(fmt, ...) \
+	pr_info("[MDP5-ENC] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MDP5_CTL_DBG(fmt, ...) \
+	pr_info("[MDP5-CTL] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MDP5_MIXER_DBG(fmt, ...) \
+	pr_info("[MDP5-MIXER] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MDP5_SMP_DBG(fmt, ...) \
+	pr_info("[MDP5-SMP] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MDP5_PIPE_DBG(fmt, ...) \
+	pr_info("[MDP5-PIPE] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define MDP5_MDSS_DBG(fmt, ...) \
+	pr_info("[MDP5-MDSS] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+
+/* DSI specific debug prints */
+#define DSI_DBG(fmt, ...) \
+	pr_info("[DSI] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define DSI_HOST_DBG(fmt, ...) \
+	pr_info("[DSI-HOST] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define DSI_MGR_DBG(fmt, ...) \
+	pr_info("[DSI-MGR] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+#define DSI_PHY_DBG(fmt, ...) \
+	pr_info("[DSI-PHY] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+
+/* State transition debug */
+#define MSM_STATE_DBG(state, fmt, ...) \
+	pr_info("[MSM-STATE] %s -> " fmt "\n", state, ##__VA_ARGS__)
+
+/* Parameter debugging */
+#define MSM_PARAM_DBG(name, val, fmt) \
+	pr_info("[MSM-PARAM] %s: " fmt "\n", name, val)
+
+/* Error tracking */
+#define MSM_ERROR_DBG(fmt, ...) \
+	pr_err("[MSM-ERROR] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+
+/* Performance tracking */
+#define MSM_PERF_DBG(fmt, ...) \
+	pr_info("[MSM-PERF] %s() " fmt "\n", __func__, ##__VA_ARGS__)
+
+#else
+/* Disabled debug macros */
+#define MSM_FUNC_ENTER(fmt, ...) do {} while (0)
+#define MSM_FUNC_EXIT(fmt, ...) do {} while (0)
+#define MSM_DRV_DBG(fmt, ...) do {} while (0)
+#define MSM_KMS_DBG(fmt, ...) do {} while (0)
+#define MSM_GPU_DBG(fmt, ...) do {} while (0)
+#define MSM_GEM_DBG(fmt, ...) do {} while (0)
+#define MDP5_DBG(fmt, ...) do {} while (0)
+#define MDP5_CRTC_DBG(fmt, ...) do {} while (0)
+#define MDP5_PLANE_DBG(fmt, ...) do {} while (0)
+#define MDP5_ENC_DBG(fmt, ...) do {} while (0)
+#define MDP5_CTL_DBG(fmt, ...) do {} while (0)
+#define MDP5_MIXER_DBG(fmt, ...) do {} while (0)
+#define MDP5_SMP_DBG(fmt, ...) do {} while (0)
+#define MDP5_PIPE_DBG(fmt, ...) do {} while (0)
+#define MDP5_MDSS_DBG(fmt, ...) do {} while (0)
+#define DSI_DBG(fmt, ...) do {} while (0)
+#define DSI_HOST_DBG(fmt, ...) do {} while (0)
+#define DSI_MGR_DBG(fmt, ...) do {} while (0)
+#define DSI_PHY_DBG(fmt, ...) do {} while (0)
+#define MSM_STATE_DBG(state, fmt, ...) do {} while (0)
+#define MSM_PARAM_DBG(name, val, fmt) do {} while (0)
+#define MSM_ERROR_DBG(fmt, ...) do {} while (0)
+#define MSM_PERF_DBG(fmt, ...) do {} while (0)
+#endif
+
 #define DBG(fmt, ...) DRM_DEBUG_DRIVER(fmt"\n", ##__VA_ARGS__)
 #define VERB(fmt, ...) if (0) DRM_DEBUG_DRIVER(fmt"\n", ##__VA_ARGS__)
 

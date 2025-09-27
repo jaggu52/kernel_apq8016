@@ -25,7 +25,9 @@ static int mdp5_hw_init(struct msm_kms *kms)
 	struct device *dev = &mdp5_kms->pdev->dev;
 	unsigned long flags;
 
+	MDP5_DBG("Starting MDP5 hardware initialization");
 	pm_runtime_get_sync(dev);
+	MDP5_DBG("Power runtime acquired");
 
 	/* Magic unknown register writes:
 	 *
@@ -51,13 +53,18 @@ static int mdp5_hw_init(struct msm_kms *kms)
 	 * care.
 	 */
 
+	MDP5_DBG("Writing MDP5_DISP_INTF_SEL register");
 	spin_lock_irqsave(&mdp5_kms->resource_lock, flags);
 	mdp5_write(mdp5_kms, REG_MDP5_DISP_INTF_SEL, 0);
 	spin_unlock_irqrestore(&mdp5_kms->resource_lock, flags);
 
+	MDP5_DBG("Resetting CTLM hardware");
 	mdp5_ctlm_hw_reset(mdp5_kms->ctlm);
+	MDP5_DBG("CTLM hardware reset completed");
 
 	pm_runtime_put_sync(dev);
+	MDP5_DBG("Power runtime released");
+	MDP5_DBG("MDP5 hardware initialization completed");
 
 	return 0;
 }
@@ -86,14 +93,21 @@ struct mdp5_global_state *mdp5_get_global_state(struct drm_atomic_state *s)
 	struct drm_private_state *priv_state;
 	int ret;
 
+	MDP5_DBG("Getting global state for atomic state");
+
 	ret = drm_modeset_lock(&mdp5_kms->glob_state_lock, s->acquire_ctx);
-	if (ret)
+	if (ret) {
+		MDP5_DBG("Failed to acquire global state lock, ret=%d", ret);
 		return ERR_PTR(ret);
+	}
 
 	priv_state = drm_atomic_get_private_obj_state(s, &mdp5_kms->glob_state);
-	if (IS_ERR(priv_state))
+	if (IS_ERR(priv_state)) {
+		MDP5_DBG("Failed to get private object state");
 		return ERR_CAST(priv_state);
+	}
 
+	MDP5_DBG("Global state acquired successfully");
 	return to_mdp5_global_state(priv_state);
 }
 
@@ -159,14 +173,19 @@ static void mdp5_prepare_commit(struct msm_kms *kms, struct drm_atomic_state *st
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	struct mdp5_global_state *global_state;
 
+	MDP5_DBG("Preparing commit for atomic state");
 	global_state = mdp5_get_existing_global_state(mdp5_kms);
 
-	if (mdp5_kms->smp)
+	if (mdp5_kms->smp) {
+		MDP5_DBG("Preparing SMP commit");
 		mdp5_smp_prepare_commit(mdp5_kms->smp, &global_state->smp);
+	}
+	MDP5_DBG("Commit preparation completed");
 }
 
 static void mdp5_flush_commit(struct msm_kms *kms, unsigned crtc_mask)
 {
+	MDP5_DBG("Flushing commit for CRTC mask: 0x%x", crtc_mask);
 	/* TODO */
 }
 
@@ -175,8 +194,12 @@ static void mdp5_wait_flush(struct msm_kms *kms, unsigned crtc_mask)
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	struct drm_crtc *crtc;
 
-	for_each_crtc_mask(mdp5_kms->dev, crtc, crtc_mask)
+	MDP5_DBG("Waiting for flush completion for CRTC mask: 0x%x", crtc_mask);
+	for_each_crtc_mask(mdp5_kms->dev, crtc, crtc_mask) {
+		MDP5_DBG("Waiting for CRTC %d commit done", crtc->index);
 		mdp5_crtc_wait_for_commit_done(crtc);
+	}
+	MDP5_DBG("Flush wait completed for all CRTCs");
 }
 
 static void mdp5_complete_commit(struct msm_kms *kms, unsigned crtc_mask)
@@ -184,10 +207,14 @@ static void mdp5_complete_commit(struct msm_kms *kms, unsigned crtc_mask)
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	struct mdp5_global_state *global_state;
 
+	MDP5_DBG("Completing commit for CRTC mask: 0x%x", crtc_mask);
 	global_state = mdp5_get_existing_global_state(mdp5_kms);
 
-	if (mdp5_kms->smp)
+	if (mdp5_kms->smp) {
+		MDP5_DBG("Completing SMP commit");
 		mdp5_smp_complete_commit(mdp5_kms->smp, &global_state->smp);
+	}
+	MDP5_DBG("Commit completed successfully");
 }
 
 static long mdp5_round_pixclk(struct msm_kms *kms, unsigned long rate,
@@ -374,8 +401,11 @@ static int modeset_init_intf(struct mdp5_kms *mdp5_kms,
 	struct drm_encoder *encoder;
 	int ret = 0;
 
+	MDP5_DBG("Initializing interface type: %d, num: %d", intf->type, intf->num);
+
 	switch (intf->type) {
 	case INTF_eDP:
+		MDP5_DBG("Processing eDP interface");
 		if (!priv->edp)
 			break;
 
@@ -394,8 +424,11 @@ static int modeset_init_intf(struct mdp5_kms *mdp5_kms,
 		ret = msm_edp_modeset_init(priv->edp, dev, encoder);
 		break;
 	case INTF_HDMI:
-		if (!priv->hdmi)
+		MDP5_DBG("Processing HDMI interface");
+		if (!priv->hdmi) {
+			MDP5_DBG("No HDMI device available");
 			break;
+		}
 
 		ctl = mdp5_ctlm_request(ctlm, intf->num);
 		if (!ctl) {
@@ -417,31 +450,44 @@ static int modeset_init_intf(struct mdp5_kms *mdp5_kms,
 					mdp5_cfg_get_hw_config(mdp5_kms->cfg);
 		int dsi_id = get_dsi_id_from_intf(hw_cfg, intf->num);
 
+		MDP5_DBG("Processing DSI interface, dsi_id: %d", dsi_id);
 		if ((dsi_id >= ARRAY_SIZE(priv->dsi)) || (dsi_id < 0)) {
 			DRM_DEV_ERROR(dev->dev, "failed to find dsi from intf %d\n",
 				intf->num);
+			MDP5_DBG("Failed to find DSI from interface %d", intf->num);
 			ret = -EINVAL;
 			break;
 		}
 
-		if (!priv->dsi[dsi_id])
+		if (!priv->dsi[dsi_id]) {
+			MDP5_DBG("DSI device not available for dsi_id: %d", dsi_id);
 			break;
+		}
 
+		MDP5_DBG("Requesting CTL for DSI interface %d", intf->num);
 		ctl = mdp5_ctlm_request(ctlm, intf->num);
 		if (!ctl) {
+			MDP5_DBG("Failed to request CTL for interface %d", intf->num);
 			ret = -EINVAL;
 			break;
 		}
 
+		MDP5_DBG("Constructing encoder for DSI interface");
 		encoder = construct_encoder(mdp5_kms, intf, ctl);
 		if (IS_ERR(encoder)) {
 			ret = PTR_ERR(encoder);
+			MDP5_DBG("Failed to construct encoder, ret=%d", ret);
 			break;
 		}
 
+		MDP5_DBG("Initializing DSI modeset");
 		ret = msm_dsi_modeset_init(priv->dsi[dsi_id], dev, encoder);
-		if (!ret)
+		if (!ret) {
+			MDP5_DBG("Setting DSI interface mode");
 			mdp5_encoder_set_intf_mode(encoder, msm_dsi_is_cmd_mode(priv->dsi[dsi_id]));
+		} else {
+			MDP5_DBG("DSI modeset initialization failed, ret=%d", ret);
+		}
 
 		break;
 	}
@@ -463,14 +509,19 @@ static int modeset_init(struct mdp5_kms *mdp5_kms)
 	struct drm_plane *primary[MAX_BASES] = { NULL };
 	struct drm_plane *cursor[MAX_BASES] = { NULL };
 
+	MDP5_DBG("Starting modeset initialization with %d interfaces", mdp5_kms->num_intfs);
+
 	/*
 	 * Construct encoders and modeset initialize connector devices
 	 * for each external display interface.
 	 */
 	for (i = 0; i < mdp5_kms->num_intfs; i++) {
+		MDP5_DBG("Initializing interface %d", i);
 		ret = modeset_init_intf(mdp5_kms, mdp5_kms->intfs[i]);
-		if (ret)
+		if (ret) {
+			MDP5_DBG("Failed to initialize interface %d, ret=%d", i, ret);
 			goto fail;
+		}
 	}
 
 	/*
@@ -479,6 +530,8 @@ static int modeset_init(struct mdp5_kms *mdp5_kms)
 	 * but let's be safe here anyway
 	 */
 	num_crtcs = min(priv->num_encoders, mdp5_kms->num_hwmixers);
+	MDP5_DBG("Number of CRTCs: %u (encoders: %u, hwmixers: %u)", 
+		 num_crtcs, priv->num_encoders, mdp5_kms->num_hwmixers);
 
 	/*
 	 * Construct planes equaling the number of hw pipes, and CRTCs for the
@@ -545,6 +598,9 @@ static void read_mdp_hw_revision(struct mdp5_kms *mdp5_kms,
 	struct device *dev = &mdp5_kms->pdev->dev;
 	u32 version;
 
+	MDP5_DBG("mdp5_read on REG_MDP5_HW_VERSION");
+	MDP5_DBG("REG_MDP5_HW_VERSION offset = 0x%x", REG_MDP5_HW_VERSION);
+
 	pm_runtime_get_sync(dev);
 	version = mdp5_read(mdp5_kms, REG_MDP5_HW_VERSION);
 	pm_runtime_put_sync(dev);
@@ -553,6 +609,7 @@ static void read_mdp_hw_revision(struct mdp5_kms *mdp5_kms,
 	*minor = FIELD(version, MDP5_HW_VERSION_MINOR);
 
 	DRM_DEV_INFO(dev, "MDP5 version v%d.%d", *major, *minor);
+	MDP5_DBG("MDP5 version v%d.%d", *major, *minor);
 }
 
 static int get_clk(struct platform_device *pdev, struct clk **clkp,
@@ -583,55 +640,73 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 	int irq, i, ret;
 	struct device *iommu_dev;
 
+	MDP5_DBG("Initializing MDP5 KMS");
+
 	/* priv->kms would have been populated by the MDP5 driver */
 	kms = priv->kms;
-	if (!kms)
+	if (!kms) {
+		MDP5_DBG("No KMS available in private data");
 		return NULL;
+	}
+	MDP5_DBG("Found existing KMS");
 
 	mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	pdev = mdp5_kms->pdev;
+	MDP5_DBG("Got MDP5 KMS and platform device");
 
+	MDP5_DBG("Initializing MDP KMS base");
 	ret = mdp_kms_init(&mdp5_kms->base, &kms_funcs);
 	if (ret) {
 		DRM_DEV_ERROR(&pdev->dev, "failed to init kms\n");
+		MDP5_DBG("Failed to initialize MDP KMS base, ret=%d", ret);
 		goto fail;
 	}
 
+	MDP5_DBG("Parsing and mapping IRQ");
 	irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
 	if (irq < 0) {
 		ret = irq;
 		DRM_DEV_ERROR(&pdev->dev, "failed to get irq: %d\n", ret);
+		MDP5_DBG("Failed to get IRQ, ret=%d", ret);
 		goto fail;
 	}
 
 	kms->irq = irq;
+	MDP5_DBG("IRQ mapped: %d", irq);
 
 	config = mdp5_cfg_get_config(mdp5_kms->cfg);
+	MDP5_DBG("Got MDP5 configuration");
 
 	/* make sure things are off before attaching iommu (bootloader could
 	 * have left things on, in which case we'll start getting faults if
 	 * we don't disable):
 	 */
+	MDP5_DBG("Disabling interfaces before IOMMU setup");
 	pm_runtime_get_sync(&pdev->dev);
 	for (i = 0; i < MDP5_INTF_NUM_MAX; i++) {
 		if (mdp5_cfg_intf_is_virtual(config->hw->intf.connect[i]) ||
 		    !config->hw->intf.base[i])
 			continue;
+		MDP5_DBG("Disabling interface %d", i);
 		mdp5_write(mdp5_kms, REG_MDP5_INTF_TIMING_ENGINE_EN(i), 0);
 
 		mdp5_write(mdp5_kms, REG_MDP5_INTF_FRAME_LINE_COUNT_EN(i), 0x3);
 	}
+	MDP5_DBG("Waiting for interface shutdown");
 	mdelay(16);
 
 	if (config->platform.iommu) {
 		struct msm_mmu *mmu;
 
+		MDP5_DBG("Setting up IOMMU for MDP5");
 		iommu_dev = &pdev->dev;
 		if (!dev_iommu_fwspec_get(iommu_dev))
 			iommu_dev = iommu_dev->parent;
 
+		MDP5_DBG("Creating IOMMU");
 		mmu = msm_iommu_new(iommu_dev, config->platform.iommu);
 
+		MDP5_DBG("Creating address space");
 		aspace = msm_gem_address_space_create(mmu, "mdp5",
 			0x1000, 0x100000000 - 0x1000);
 
@@ -639,24 +714,30 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 			if (!IS_ERR(mmu))
 				mmu->funcs->destroy(mmu);
 			ret = PTR_ERR(aspace);
+			MDP5_DBG("Failed to create address space, ret=%d", ret);
 			goto fail;
 		}
 
 		kms->aspace = aspace;
 		dev_info(&pdev->dev, "APQ8016 supports IOMMU!\n");
+		MDP5_DBG("IOMMU setup completed successfully");
 	} else {
 		DRM_DEV_INFO(&pdev->dev,
 			 "no iommu, fallback to phys contig buffers for scanout\n");
+		MDP5_DBG("No IOMMU available, using physical contiguous buffers");
 		aspace = NULL;
 	}
 
 	pm_runtime_put_sync(&pdev->dev);
 
+	MDP5_DBG("Initializing modeset");
 	ret = modeset_init(mdp5_kms);
 	if (ret) {
 		DRM_DEV_ERROR(&pdev->dev, "modeset_init failed: %d\n", ret);
+		MDP5_DBG("Modeset initialization failed, ret=%d", ret);
 		goto fail;
 	}
+	MDP5_DBG("Modeset initialization completed successfully");
 
 	dev->mode_config.min_width = 0;
 	dev->mode_config.min_height = 0;

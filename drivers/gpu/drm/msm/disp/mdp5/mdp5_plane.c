@@ -27,7 +27,9 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 static struct mdp5_kms *get_kms(struct drm_plane *plane)
 {
 	struct msm_drm_private *priv = plane->dev->dev_private;
-	return to_mdp5_kms(to_mdp_kms(priv->kms));
+	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(priv->kms));
+	MDP5_PLANE_DBG("get_kms plane=%s kms=%p", plane->name, mdp5_kms);
+	return mdp5_kms;
 }
 
 static bool plane_enabled(struct drm_plane_state *state)
@@ -39,15 +41,19 @@ static void mdp5_plane_destroy(struct drm_plane *plane)
 {
 	struct mdp5_plane *mdp5_plane = to_mdp5_plane(plane);
 
+	MSM_FUNC_ENTER("plane=%s", plane->name);
+	MDP5_PLANE_DBG("destroy plane=%s", plane->name);
 	drm_plane_cleanup(plane);
 
 	kfree(mdp5_plane);
+	MSM_FUNC_EXIT("");
 }
 
 /* helper to install properties which are common to planes and crtcs */
 static void mdp5_plane_install_properties(struct drm_plane *plane,
 		struct drm_mode_object *obj)
 {
+	MSM_FUNC_ENTER("plane=%s", plane->name);
 	drm_plane_create_rotation_property(plane,
 					   DRM_MODE_ROTATE_0,
 					   DRM_MODE_ROTATE_0 |
@@ -60,6 +66,8 @@ static void mdp5_plane_install_properties(struct drm_plane *plane,
 			BIT(DRM_MODE_BLEND_PREMULTI) |
 			BIT(DRM_MODE_BLEND_COVERAGE));
 	drm_plane_create_zpos_property(plane, 1, 1, 255);
+	MDP5_PLANE_DBG("install_properties plane=%s", plane->name);
+	MSM_FUNC_EXIT("");
 }
 
 static void
@@ -69,6 +77,7 @@ mdp5_plane_atomic_print_state(struct drm_printer *p,
 	struct mdp5_plane_state *pstate = to_mdp5_plane_state(state);
 	struct mdp5_kms *mdp5_kms = get_kms(state->plane);
 
+	MSM_FUNC_ENTER("plane=%s", state->plane->name);
 	drm_printf(p, "\thwpipe=%s\n", pstate->hwpipe ?
 			pstate->hwpipe->name : "(null)");
 	if (mdp5_kms->caps & MDP_CAP_SRC_SPLIT)
@@ -80,17 +89,22 @@ mdp5_plane_atomic_print_state(struct drm_printer *p,
 	drm_printf(p, "\tnormalized_zpos=%u\n", pstate->base.normalized_zpos);
 	drm_printf(p, "\talpha=%u\n", pstate->base.alpha);
 	drm_printf(p, "\tstage=%s\n", stage2name(pstate->stage));
+	MDP5_PLANE_DBG("print_state plane=%s stage=%s", state->plane->name,
+		stage2name(pstate->stage));
+	MSM_FUNC_EXIT("");
 }
 
 static void mdp5_plane_reset(struct drm_plane *plane)
 {
 	struct mdp5_plane_state *mdp5_state;
 
+	MSM_FUNC_ENTER("plane=%s", plane->name);
 	if (plane->state)
 		__drm_atomic_helper_plane_destroy_state(plane->state);
 
 	kfree(to_mdp5_plane_state(plane->state));
 	mdp5_state = kzalloc(sizeof(*mdp5_state), GFP_KERNEL);
+	MDP5_PLANE_DBG("reset plane=%s", plane->name);
 
 	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 		mdp5_state->base.zpos = STAGE_BASE;
@@ -99,6 +113,7 @@ static void mdp5_plane_reset(struct drm_plane *plane)
 	mdp5_state->base.normalized_zpos = mdp5_state->base.zpos;
 
 	__drm_atomic_helper_plane_reset(plane, &mdp5_state->base);
+	MSM_FUNC_EXIT("");
 }
 
 static struct drm_plane_state *
@@ -106,16 +121,23 @@ mdp5_plane_duplicate_state(struct drm_plane *plane)
 {
 	struct mdp5_plane_state *mdp5_state;
 
-	if (WARN_ON(!plane->state))
+	MSM_FUNC_ENTER("plane=%s", plane->name);
+	if (WARN_ON(!plane->state)) {
+		MSM_FUNC_EXIT("ret=NULL");
 		return NULL;
+	}
 
 	mdp5_state = kmemdup(to_mdp5_plane_state(plane->state),
 			sizeof(*mdp5_state), GFP_KERNEL);
-	if (!mdp5_state)
+	if (!mdp5_state) {
+		MSM_FUNC_EXIT("ret=NULL");
 		return NULL;
+	}
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &mdp5_state->base);
+	MDP5_PLANE_DBG("duplicate_state plane=%s", plane->name);
 
+	MSM_FUNC_EXIT("ret=%p", &mdp5_state->base);
 	return &mdp5_state->base;
 }
 
@@ -124,10 +146,13 @@ static void mdp5_plane_destroy_state(struct drm_plane *plane,
 {
 	struct mdp5_plane_state *pstate = to_mdp5_plane_state(state);
 
+	MSM_FUNC_ENTER("plane=%s state=%p", plane->name, state);
 	if (state->fb)
 		drm_framebuffer_put(state->fb);
+	MDP5_PLANE_DBG("destroy_state plane=%s", plane->name);
 
 	kfree(pstate);
+	MSM_FUNC_EXIT("");
 }
 
 static const struct drm_plane_funcs mdp5_plane_funcs = {
@@ -147,11 +172,16 @@ static void mdp5_plane_cleanup_fb(struct drm_plane *plane,
 	struct msm_kms *kms = &mdp5_kms->base.base;
 	struct drm_framebuffer *fb = old_state->fb;
 
+	MSM_FUNC_ENTER("plane=%s old_state=%p", plane->name, old_state);
 	if (!fb)
-		return;
+		goto exit;
 
 	DBG("%s: cleanup: FB[%u]", plane->name, fb->base.id);
+	MDP5_PLANE_DBG("cleanup_fb plane=%s fb=%u", plane->name, fb->base.id);
 	msm_framebuffer_cleanup(fb, kms->aspace);
+
+exit:
+	MSM_FUNC_EXIT("");
 }
 
 static int mdp5_plane_atomic_check_with_state(struct drm_crtc_state *crtc_state,
@@ -169,8 +199,14 @@ static int mdp5_plane_atomic_check_with_state(struct drm_crtc_state *crtc_state,
 	int min_scale, max_scale;
 	int ret;
 
+	MSM_FUNC_ENTER("plane=%s", plane->name);
 	DBG("%s: check (%d -> %d)", plane->name,
 			plane_enabled(old_state), plane_enabled(state));
+	MDP5_PLANE_DBG("check plane=%s src=%dx%d dst=%dx%d", plane->name,
+		drm_rect_width(&state->src) >> 16,
+		drm_rect_height(&state->src) >> 16,
+		drm_rect_width(&state->dst),
+		drm_rect_height(&state->dst));
 
 	max_width = config->hw->lm.max_width << 16;
 	max_height = config->hw->lm.max_height << 16;
@@ -191,12 +227,16 @@ static int mdp5_plane_atomic_check_with_state(struct drm_crtc_state *crtc_state,
 		else
 			out_of_bounds = true;
 	}
+	MDP5_PLANE_DBG("check caps plane=%s need_right=%d out_of_bounds=%d", plane->name,
+		need_right_hwpipe, out_of_bounds);
 
 	if (out_of_bounds) {
 		struct drm_rect src = drm_plane_state_src(state);
 		DBG("Invalid source size "DRM_RECT_FP_FMT,
 				DRM_RECT_FP_ARG(&src));
-		return -ERANGE;
+		MDP5_PLANE_DBG("check out_of_bounds plane=%s", plane->name);
+		ret = -ERANGE;
+		goto exit;
 	}
 
 	min_scale = FRAC_16_16(1, 8);
@@ -206,7 +246,7 @@ static int mdp5_plane_atomic_check_with_state(struct drm_crtc_state *crtc_state,
 						  min_scale, max_scale,
 						  true, true);
 	if (ret)
-		return ret;
+		goto exit;
 
 	if (plane_enabled(state)) {
 		unsigned int rotation;
@@ -259,6 +299,9 @@ static int mdp5_plane_atomic_check_with_state(struct drm_crtc_state *crtc_state,
 			if (mdp5_state->hwpipe && (mdp5_state->hwpipe->blkcfg != blkcfg))
 				new_hwpipe = true;
 		}
+		if (new_hwpipe)
+			MDP5_PLANE_DBG("check new_hwpipe plane=%s caps=0x%08x blkcfg=0x%08x",
+				plane->name, caps, blkcfg);
 
 		/* (re)assign hwpipe if needed, otherwise keep old one: */
 		if (new_hwpipe) {
@@ -279,7 +322,7 @@ static int mdp5_plane_atomic_check_with_state(struct drm_crtc_state *crtc_state,
 			if (ret) {
 				DBG("%s: failed to assign hwpipe(s)!",
 				    plane->name);
-				return ret;
+				goto exit;
 			}
 
 			mdp5_state->hwpipe = new_hwpipe;
@@ -292,6 +335,9 @@ static int mdp5_plane_atomic_check_with_state(struct drm_crtc_state *crtc_state,
 				 * new state
 				 */
 				mdp5_state->r_hwpipe = NULL;
+			MDP5_PLANE_DBG("assign_hwpipe plane=%s left=%s right=%s", plane->name,
+				mdp5_state->hwpipe ? mdp5_state->hwpipe->name : "(null)",
+				mdp5_state->r_hwpipe ? mdp5_state->r_hwpipe->name : "(null)");
 
 
 			mdp5_pipe_release(state->state, old_hwpipe);
@@ -301,9 +347,14 @@ static int mdp5_plane_atomic_check_with_state(struct drm_crtc_state *crtc_state,
 		mdp5_pipe_release(state->state, mdp5_state->hwpipe);
 		mdp5_pipe_release(state->state, mdp5_state->r_hwpipe);
 		mdp5_state->hwpipe = mdp5_state->r_hwpipe = NULL;
+		MDP5_PLANE_DBG("release_hwpipe plane=%s", plane->name);
 	}
 
-	return 0;
+	ret = 0;
+
+exit:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int mdp5_plane_atomic_check(struct drm_plane *plane,
@@ -315,17 +366,30 @@ static int mdp5_plane_atomic_check(struct drm_plane *plane,
 										 plane);
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
+	int ret;
+
+	MSM_FUNC_ENTER("plane=%s", plane->name);
 
 	crtc = new_plane_state->crtc ? new_plane_state->crtc : old_plane_state->crtc;
-	if (!crtc)
-		return 0;
+	if (!crtc) {
+		ret = 0;
+		goto exit;
+	}
 
 	crtc_state = drm_atomic_get_existing_crtc_state(state,
 							crtc);
-	if (WARN_ON(!crtc_state))
-		return -EINVAL;
+	if (WARN_ON(!crtc_state)) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	MDP5_PLANE_DBG("atomic_check plane=%s crtc=%s", plane->name,
+		crtc->name);
 
-	return mdp5_plane_atomic_check_with_state(crtc_state, new_plane_state);
+	ret = mdp5_plane_atomic_check_with_state(crtc_state, new_plane_state);
+
+exit:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static void mdp5_plane_atomic_update(struct drm_plane *plane,
@@ -334,7 +398,10 @@ static void mdp5_plane_atomic_update(struct drm_plane *plane,
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state,
 									   plane);
 
+	MSM_FUNC_ENTER("plane=%s", plane->name);
 	DBG("%s: update", plane->name);
+	MDP5_PLANE_DBG("atomic_update plane=%s visible=%d", plane->name,
+		plane_enabled(new_state));
 
 	if (plane_enabled(new_state)) {
 		int ret;
@@ -344,7 +411,10 @@ static void mdp5_plane_atomic_update(struct drm_plane *plane,
 				&new_state->src, &new_state->dst);
 		/* atomic_check should have ensured that this doesn't fail */
 		WARN_ON(ret < 0);
+		if (ret)
+			MDP5_PLANE_DBG("atomic_update plane=%s mode_set ret=%d", plane->name, ret);
 	}
+	MSM_FUNC_EXIT("");
 }
 
 static int mdp5_plane_atomic_async_check(struct drm_plane *plane,
@@ -357,19 +427,26 @@ static int mdp5_plane_atomic_async_check(struct drm_plane *plane,
 	int min_scale, max_scale;
 	int ret;
 
+	MSM_FUNC_ENTER("plane=%s", plane->name);
 	crtc_state = drm_atomic_get_existing_crtc_state(state,
 							new_plane_state->crtc);
-	if (WARN_ON(!crtc_state))
-		return -EINVAL;
+	if (WARN_ON(!crtc_state)) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
-	if (!crtc_state->active)
-		return -EINVAL;
+	if (!crtc_state->active) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	mdp5_state = to_mdp5_plane_state(new_plane_state);
 
 	/* don't use fast path if we don't have a hwpipe allocated yet */
-	if (!mdp5_state->hwpipe)
-		return -EINVAL;
+	if (!mdp5_state->hwpipe) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	/* only allow changing of position(crtc x/y or src x/y) in fast path */
 	if (plane->state->crtc != new_plane_state->crtc ||
@@ -378,8 +455,10 @@ static int mdp5_plane_atomic_async_check(struct drm_plane *plane,
 	    plane->state->crtc_w != new_plane_state->crtc_w ||
 	    plane->state->crtc_h != new_plane_state->crtc_h ||
 	    !plane->state->fb ||
-	    plane->state->fb != new_plane_state->fb)
-		return -EINVAL;
+	    plane->state->fb != new_plane_state->fb) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	min_scale = FRAC_16_16(1, 8);
 	max_scale = FRAC_16_16(8, 1);
@@ -388,7 +467,7 @@ static int mdp5_plane_atomic_async_check(struct drm_plane *plane,
 						  min_scale, max_scale,
 						  true, true);
 	if (ret)
-		return ret;
+		goto exit;
 
 	/*
 	 * if the visibility of the plane changes (i.e, if the cursor is
@@ -397,10 +476,18 @@ static int mdp5_plane_atomic_async_check(struct drm_plane *plane,
 	 * also assign/unassign the hwpipe(s) tied to the plane. We avoid
 	 * taking the fast path for both these reasons.
 	 */
-	if (new_plane_state->visible != plane->state->visible)
-		return -EINVAL;
+	if (new_plane_state->visible != plane->state->visible) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	MDP5_PLANE_DBG("async_check plane=%s pos=(%d,%d)", plane->name,
+		new_plane_state->crtc_x, new_plane_state->crtc_y);
 
-	return 0;
+	ret = 0;
+
+exit:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static void mdp5_plane_atomic_async_update(struct drm_plane *plane,
@@ -410,10 +497,15 @@ static void mdp5_plane_atomic_async_update(struct drm_plane *plane,
 									   plane);
 	struct drm_framebuffer *old_fb = plane->state->fb;
 
+	MSM_FUNC_ENTER("plane=%s", plane->name);
 	plane->state->src_x = new_state->src_x;
 	plane->state->src_y = new_state->src_y;
 	plane->state->crtc_x = new_state->crtc_x;
 	plane->state->crtc_y = new_state->crtc_y;
+	MDP5_PLANE_DBG("async_update plane=%s -> src=(%d,%d) crtc=(%d,%d)",
+		plane->name,
+		plane->state->src_x >> 16, plane->state->src_y >> 16,
+		plane->state->crtc_x, plane->state->crtc_y);
 
 	if (plane_enabled(new_state)) {
 		struct mdp5_ctl *ctl;
@@ -424,16 +516,25 @@ static void mdp5_plane_atomic_async_update(struct drm_plane *plane,
 		ret = mdp5_plane_mode_set(plane, new_state->crtc, new_state->fb,
 				&new_state->src, &new_state->dst);
 		WARN_ON(ret < 0);
+		if (ret)
+			MDP5_PLANE_DBG("async_update mode_set ret=%d", ret);
 
 		ctl = mdp5_crtc_get_ctl(new_state->crtc);
 
-		mdp5_ctl_commit(ctl, pipeline, mdp5_plane_get_flush(plane), true);
+		{
+			u32 flush = mdp5_plane_get_flush(plane);
+			mdp5_ctl_commit(ctl, pipeline, flush, true);
+			MDP5_PLANE_DBG("async_commit plane=%s flush=0x%08x", plane->name, flush);
+		}
 	}
 
 	*to_mdp5_plane_state(plane->state) =
-		*to_mdp5_plane_state(new_state);
+	*to_mdp5_plane_state(new_state);
+	MDP5_PLANE_DBG("async_update done plane=%s old_fb=%u", plane->name,
+		old_fb ? old_fb->base.id : 0);
 
 	new_state->fb = old_fb;
+	MSM_FUNC_EXIT("");
 }
 
 static const struct drm_plane_helper_funcs mdp5_plane_helper_funcs = {
@@ -450,6 +551,7 @@ static void set_scanout_locked(struct mdp5_kms *mdp5_kms,
 			       struct drm_framebuffer *fb)
 {
 	struct msm_kms *kms = &mdp5_kms->base.base;
+	MDP5_PLANE_DBG("set_scanout pipe=%d fb=%u", pipe, fb->base.id);
 
 	mdp5_write(mdp5_kms, REG_MDP5_PIPE_SRC_STRIDE_A(pipe),
 			MDP5_PIPE_SRC_STRIDE_A_P0(fb->pitches[0]) |
@@ -476,6 +578,7 @@ static void csc_disable(struct mdp5_kms *mdp5_kms, enum mdp5_pipe pipe)
 			 ~MDP5_PIPE_OP_MODE_CSC_1_EN;
 
 	mdp5_write(mdp5_kms, REG_MDP5_PIPE_OP_MODE(pipe), value);
+	MDP5_PLANE_DBG("csc_disable pipe=%d", pipe);
 }
 
 /* Note: mdp5_plane->pipe_lock must be locked */
@@ -494,6 +597,7 @@ static void csc_enable(struct mdp5_kms *mdp5_kms, enum mdp5_pipe pipe,
 		mode |= MDP5_PIPE_OP_MODE_CSC_DST_DATA_FORMAT(DATA_FORMAT_YUV);
 	mode |= MDP5_PIPE_OP_MODE_CSC_1_EN;
 	mdp5_write(mdp5_kms, REG_MDP5_PIPE_OP_MODE(pipe), mode);
+	MDP5_PLANE_DBG("csc_enable pipe=%d mode=0x%08x", pipe, mode);
 
 	matrix = csc->matrix;
 	mdp5_write(mdp5_kms, REG_MDP5_PIPE_CSC_1_MATRIX_COEFF_0(pipe),
@@ -848,11 +952,14 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 	uint32_t src_img_w, src_img_h;
 	int ret;
 
+	MSM_FUNC_ENTER("plane=%s fb=%u", plane->name, fb ? fb->base.id : 0);
 	nplanes = fb->format->num_planes;
 
 	/* bad formats should already be rejected: */
-	if (WARN_ON(nplanes > pipe2nclients(pipe)))
-		return -EINVAL;
+	if (WARN_ON(nplanes > pipe2nclients(pipe))) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	format = to_mdp_format(msm_framebuffer_format(fb));
 	pix_format = format->base.pixel_format;
@@ -879,6 +986,9 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 	DBG("%s: FB[%u] %u,%u,%u,%u -> CRTC[%u] %d,%d,%u,%u", plane->name,
 			fb->base.id, src_x, src_y, src_w, src_h,
 			crtc->base.id, crtc_x, crtc_y, crtc_w, crtc_h);
+	MDP5_PLANE_DBG("mode_set plane=%s fb=%u hwpipe=%s right=%s", plane->name,
+		fb->base.id, hwpipe->name,
+		right_hwpipe ? right_hwpipe->name : "(null)");
 
 	right_hwpipe = to_mdp5_plane_state(pstate)->r_hwpipe;
 	if (right_hwpipe) {
@@ -894,11 +1004,11 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 
 	ret = calc_scalex_steps(plane, pix_format, src_w, crtc_w, step.x);
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = calc_scaley_steps(plane, pix_format, src_h, crtc_h, step.y);
 	if (ret)
-		return ret;
+		goto exit;
 
 	if (hwpipe->caps & MDP_PIPE_CAP_SW_PIX_EXT) {
 		calc_pixel_ext(format, src_w, crtc_w, step.x,
@@ -913,6 +1023,8 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 	config |= get_scale_config(format, src_w, crtc_w, true);
 	config |= get_scale_config(format, src_h, crtc_h, false);
 	DBG("scale config = %x", config);
+	MDP5_PLANE_DBG("scale plane=%s config=0x%08x hdecm=%u vdecm=%u", plane->name,
+		config, hdecm, vdecm);
 
 	rotation = drm_rotation_simplify(pstate->rotation,
 					 DRM_MODE_ROTATE_0 |
@@ -933,6 +1045,10 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 				     src_img_w, src_img_h,
 				     src_x + src_w, src_y, src_w, src_h);
 
+	ret = 0;
+
+exit:
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -943,21 +1059,37 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 enum mdp5_pipe mdp5_plane_pipe(struct drm_plane *plane)
 {
 	struct mdp5_plane_state *pstate = to_mdp5_plane_state(plane->state);
+	enum mdp5_pipe pipe_id;
 
-	if (WARN_ON(!pstate->hwpipe))
-		return SSPP_NONE;
+	MSM_FUNC_ENTER("plane=%s", plane->name);
+	if (WARN_ON(!pstate->hwpipe)) {
+		pipe_id = SSPP_NONE;
+		goto exit;
+	}
+	pipe_id = pstate->hwpipe->pipe;
+	MDP5_PLANE_DBG("plane_pipe plane=%s pipe=%d", plane->name, pipe_id);
 
-	return pstate->hwpipe->pipe;
+exit:
+	MSM_FUNC_EXIT("pipe=%d", pipe_id);
+	return pipe_id;
 }
 
 enum mdp5_pipe mdp5_plane_right_pipe(struct drm_plane *plane)
 {
 	struct mdp5_plane_state *pstate = to_mdp5_plane_state(plane->state);
+	enum mdp5_pipe pipe_id;
 
-	if (!pstate->r_hwpipe)
-		return SSPP_NONE;
+	MSM_FUNC_ENTER("plane=%s", plane->name);
+	if (!pstate->r_hwpipe) {
+		pipe_id = SSPP_NONE;
+		goto exit;
+	}
+	pipe_id = pstate->r_hwpipe->pipe;
+	MDP5_PLANE_DBG("plane_right_pipe plane=%s pipe=%d", plane->name, pipe_id);
 
-	return pstate->r_hwpipe->pipe;
+exit:
+	MSM_FUNC_EXIT("pipe=%d", pipe_id);
+	return pipe_id;
 }
 
 uint32_t mdp5_plane_get_flush(struct drm_plane *plane)
@@ -965,14 +1097,19 @@ uint32_t mdp5_plane_get_flush(struct drm_plane *plane)
 	struct mdp5_plane_state *pstate = to_mdp5_plane_state(plane->state);
 	u32 mask;
 
-	if (WARN_ON(!pstate->hwpipe))
-		return 0;
+	MSM_FUNC_ENTER("plane=%s", plane->name);
+	if (WARN_ON(!pstate->hwpipe)) {
+		mask = 0;
+		goto exit;
+	}
 
 	mask = pstate->hwpipe->flush_mask;
 
 	if (pstate->r_hwpipe)
 		mask |= pstate->r_hwpipe->flush_mask;
 
+exit:
+	MSM_FUNC_EXIT("mask=0x%08x", mask);
 	return mask;
 }
 
@@ -984,6 +1121,7 @@ struct drm_plane *mdp5_plane_init(struct drm_device *dev,
 	struct mdp5_plane *mdp5_plane;
 	int ret;
 
+	MSM_FUNC_ENTER("type=%d", type);
 	mdp5_plane = kzalloc(sizeof(*mdp5_plane), GFP_KERNEL);
 	if (!mdp5_plane) {
 		ret = -ENOMEM;
@@ -1007,11 +1145,13 @@ struct drm_plane *mdp5_plane_init(struct drm_device *dev,
 
 	drm_plane_enable_fb_damage_clips(plane);
 
+	MSM_FUNC_EXIT("plane=%p", plane);
 	return plane;
 
 fail:
 	if (plane)
 		mdp5_plane_destroy(plane);
 
+	MSM_FUNC_EXIT("err=%d", ret);
 	return ERR_PTR(ret);
 }

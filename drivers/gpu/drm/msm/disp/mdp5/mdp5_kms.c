@@ -19,11 +19,14 @@
 #include "msm_mmu.h"
 #include "mdp5_kms.h"
 
+
 static int mdp5_hw_init(struct msm_kms *kms)
 {
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	struct device *dev = &mdp5_kms->pdev->dev;
 	unsigned long flags;
+
+	MSM_FUNC_ENTER("[KMS]");
 
 	MDP5_DBG("Starting MDP5 hardware initialization");
 	pm_runtime_get_sync(dev);
@@ -65,7 +68,7 @@ static int mdp5_hw_init(struct msm_kms *kms)
 	pm_runtime_put_sync(dev);
 	MDP5_DBG("Power runtime released");
 	MDP5_DBG("MDP5 hardware initialization completed");
-
+	MSM_FUNC_EXIT("[KMS]");
 	return 0;
 }
 
@@ -79,7 +82,12 @@ static int mdp5_hw_init(struct msm_kms *kms)
 struct mdp5_global_state *
 mdp5_get_existing_global_state(struct mdp5_kms *mdp5_kms)
 {
-	return to_mdp5_global_state(mdp5_kms->glob_state.state);
+	struct mdp5_global_state *state;
+
+	MSM_FUNC_ENTER("[KMS]");
+	state = to_mdp5_global_state(mdp5_kms->glob_state.state);
+	MSM_FUNC_EXIT("[KMS]");
+	return state;
 }
 
 /*
@@ -93,21 +101,25 @@ struct mdp5_global_state *mdp5_get_global_state(struct drm_atomic_state *s)
 	struct drm_private_state *priv_state;
 	int ret;
 
+	MSM_FUNC_ENTER("[KMS]");
 	MDP5_DBG("Getting global state for atomic state");
 
 	ret = drm_modeset_lock(&mdp5_kms->glob_state_lock, s->acquire_ctx);
 	if (ret) {
 		MDP5_DBG("Failed to acquire global state lock, ret=%d", ret);
+		MSM_FUNC_EXIT("[KMS]");
 		return ERR_PTR(ret);
 	}
 
 	priv_state = drm_atomic_get_private_obj_state(s, &mdp5_kms->glob_state);
 	if (IS_ERR(priv_state)) {
 		MDP5_DBG("Failed to get private object state");
+		MSM_FUNC_EXIT("[KMS]");
 		return ERR_CAST(priv_state);
 	}
 
 	MDP5_DBG("Global state acquired successfully");
+	MSM_FUNC_EXIT("[KMS]");
 	return to_mdp5_global_state(priv_state);
 }
 
@@ -116,13 +128,18 @@ mdp5_global_duplicate_state(struct drm_private_obj *obj)
 {
 	struct mdp5_global_state *state;
 
+	MSM_FUNC_ENTER("[KMS]");
 	state = kmemdup(obj->state, sizeof(*state), GFP_KERNEL);
 	if (!state)
-		return NULL;
+		goto fail;
 
 	__drm_atomic_helper_private_obj_duplicate_state(obj, &state->base);
-
+MSM_FUNC_EXIT("[KMS]");
 	return &state->base;
+
+fail:
+	MSM_FUNC_EXIT("[KMS]");
+	return NULL;
 }
 
 static void mdp5_global_destroy_state(struct drm_private_obj *obj,
@@ -130,7 +147,10 @@ static void mdp5_global_destroy_state(struct drm_private_obj *obj,
 {
 	struct mdp5_global_state *mdp5_state = to_mdp5_global_state(state);
 
+	MSM_FUNC_ENTER("[KMS]");
+
 	kfree(mdp5_state);
+	MSM_FUNC_EXIT("[KMS]");
 }
 
 static const struct drm_private_state_funcs mdp5_global_state_funcs = {
@@ -141,31 +161,41 @@ static const struct drm_private_state_funcs mdp5_global_state_funcs = {
 static int mdp5_global_obj_init(struct mdp5_kms *mdp5_kms)
 {
 	struct mdp5_global_state *state;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[KMS]");
 
 	drm_modeset_lock_init(&mdp5_kms->glob_state_lock);
 
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
-	if (!state)
+	if (!state) {
+		MSM_FUNC_EXIT("[KMS]");
 		return -ENOMEM;
+	}
 
 	state->mdp5_kms = mdp5_kms;
 
 	drm_atomic_private_obj_init(mdp5_kms->dev, &mdp5_kms->glob_state,
 				    &state->base,
 				    &mdp5_global_state_funcs);
-	return 0;
+	MSM_FUNC_EXIT("[KMS]");
+	return ret;
 }
 
 static void mdp5_enable_commit(struct msm_kms *kms)
 {
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
+	MSM_FUNC_ENTER("[KMS]");
 	pm_runtime_get_sync(&mdp5_kms->pdev->dev);
+	MSM_FUNC_EXIT("[KMS]");
 }
 
 static void mdp5_disable_commit(struct msm_kms *kms)
 {
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
+	MSM_FUNC_ENTER("[KMS]");
 	pm_runtime_put_sync(&mdp5_kms->pdev->dev);
+	MSM_FUNC_EXIT("[KMS]");
 }
 
 static void mdp5_prepare_commit(struct msm_kms *kms, struct drm_atomic_state *state)
@@ -173,6 +203,7 @@ static void mdp5_prepare_commit(struct msm_kms *kms, struct drm_atomic_state *st
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	struct mdp5_global_state *global_state;
 
+	MSM_FUNC_ENTER("[KMS]");
 	MDP5_DBG("Preparing commit for atomic state");
 	global_state = mdp5_get_existing_global_state(mdp5_kms);
 
@@ -181,12 +212,15 @@ static void mdp5_prepare_commit(struct msm_kms *kms, struct drm_atomic_state *st
 		mdp5_smp_prepare_commit(mdp5_kms->smp, &global_state->smp);
 	}
 	MDP5_DBG("Commit preparation completed");
+	MSM_FUNC_EXIT("[KMS]");
 }
 
 static void mdp5_flush_commit(struct msm_kms *kms, unsigned crtc_mask)
 {
+	MSM_FUNC_ENTER("[KMS]");
 	MDP5_DBG("Flushing commit for CRTC mask: 0x%x", crtc_mask);
 	/* TODO */
+	MSM_FUNC_EXIT("[KMS]");
 }
 
 static void mdp5_wait_flush(struct msm_kms *kms, unsigned crtc_mask)
@@ -194,12 +228,14 @@ static void mdp5_wait_flush(struct msm_kms *kms, unsigned crtc_mask)
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	struct drm_crtc *crtc;
 
+	MSM_FUNC_ENTER("[KMS]");
 	MDP5_DBG("Waiting for flush completion for CRTC mask: 0x%x", crtc_mask);
 	for_each_crtc_mask(mdp5_kms->dev, crtc, crtc_mask) {
 		MDP5_DBG("Waiting for CRTC %d commit done", crtc->index);
 		mdp5_crtc_wait_for_commit_done(crtc);
 	}
-	MDP5_DBG("Flush wait completed for all CRTCs");
+	MDP5_DBG("Flush wait completed for mask: 0x%x", crtc_mask);
+	MSM_FUNC_EXIT("[KMS]");
 }
 
 static void mdp5_complete_commit(struct msm_kms *kms, unsigned crtc_mask)
@@ -207,6 +243,7 @@ static void mdp5_complete_commit(struct msm_kms *kms, unsigned crtc_mask)
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	struct mdp5_global_state *global_state;
 
+	MSM_FUNC_ENTER("[KMS]");
 	MDP5_DBG("Completing commit for CRTC mask: 0x%x", crtc_mask);
 	global_state = mdp5_get_existing_global_state(mdp5_kms);
 
@@ -215,11 +252,14 @@ static void mdp5_complete_commit(struct msm_kms *kms, unsigned crtc_mask)
 		mdp5_smp_complete_commit(mdp5_kms->smp, &global_state->smp);
 	}
 	MDP5_DBG("Commit completed successfully");
+	MSM_FUNC_EXIT("[KMS]");
 }
 
 static long mdp5_round_pixclk(struct msm_kms *kms, unsigned long rate,
 		struct drm_encoder *encoder)
 {
+	MSM_FUNC_ENTER("[KMS]");
+	MSM_FUNC_EXIT("[KMS]");
 	return rate;
 }
 
@@ -228,12 +268,17 @@ static int mdp5_set_split_display(struct msm_kms *kms,
 		struct drm_encoder *slave_encoder,
 		bool is_cmd_mode)
 {
+	int ret;
+
+	MSM_FUNC_ENTER("[KMS]");
 	if (is_cmd_mode)
-		return mdp5_cmd_encoder_set_split_display(encoder,
+		ret = mdp5_cmd_encoder_set_split_display(encoder,
 							slave_encoder);
 	else
-		return mdp5_vid_encoder_set_split_display(encoder,
+		ret = mdp5_vid_encoder_set_split_display(encoder,
 							  slave_encoder);
+	MSM_FUNC_EXIT("[KMS]");
+	return ret;
 }
 
 static void mdp5_kms_destroy(struct msm_kms *kms)
@@ -241,6 +286,7 @@ static void mdp5_kms_destroy(struct msm_kms *kms)
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	struct msm_gem_address_space *aspace = kms->aspace;
 	int i;
+	MSM_FUNC_ENTER("[KMS]");
 
 	for (i = 0; i < mdp5_kms->num_hwmixers; i++)
 		mdp5_mixer_destroy(mdp5_kms->hwmixers[i]);
@@ -254,6 +300,7 @@ static void mdp5_kms_destroy(struct msm_kms *kms)
 	}
 
 	mdp_kms_destroy(&mdp5_kms->base);
+	MSM_FUNC_EXIT("[KMS]");
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -264,15 +311,19 @@ static int smp_show(struct seq_file *m, void *arg)
 	struct msm_drm_private *priv = dev->dev_private;
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(priv->kms));
 	struct drm_printer p = drm_seq_file_printer(m);
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[KMS]");
 
 	if (!mdp5_kms->smp) {
 		drm_printf(&p, "no SMP pool\n");
-		return 0;
+		MSM_FUNC_EXIT("[KMS]");
+		return ret;
 	}
 
 	mdp5_smp_dump(mdp5_kms->smp, &p);
-
-	return 0;
+	MSM_FUNC_EXIT("[KMS]");
+	return ret;
 }
 
 static struct drm_info_list mdp5_debugfs_list[] = {
@@ -281,10 +332,12 @@ static struct drm_info_list mdp5_debugfs_list[] = {
 
 static int mdp5_kms_debugfs_init(struct msm_kms *kms, struct drm_minor *minor)
 {
+	MSM_FUNC_ENTER("[KMS]");
 	drm_debugfs_create_files(mdp5_debugfs_list,
 				 ARRAY_SIZE(mdp5_debugfs_list),
 				 minor->debugfs_root, minor);
 
+	MSM_FUNC_EXIT("[KMS]");
 	return 0;
 }
 #endif
@@ -317,6 +370,8 @@ static const struct mdp_kms_funcs kms_funcs = {
 
 static int mdp5_disable(struct mdp5_kms *mdp5_kms)
 {
+	int ret = 0;
+	MSM_FUNC_ENTER("[KMS]");
 	DBG("");
 
 	mdp5_kms->enable_count--;
@@ -332,11 +387,14 @@ static int mdp5_disable(struct mdp5_kms *mdp5_kms)
 	if (mdp5_kms->lut_clk)
 		clk_disable_unprepare(mdp5_kms->lut_clk);
 
-	return 0;
+	MSM_FUNC_EXIT("[KMS]");
+	return ret;
 }
 
 static int mdp5_enable(struct mdp5_kms *mdp5_kms)
 {
+	int ret = 0;
+	MSM_FUNC_ENTER("[KMS]");
 	DBG("");
 
 	mdp5_kms->enable_count++;
@@ -351,7 +409,8 @@ static int mdp5_enable(struct mdp5_kms *mdp5_kms)
 	if (mdp5_kms->tbu_rt_clk)
 		clk_prepare_enable(mdp5_kms->tbu_rt_clk);
 
-	return 0;
+	MSM_FUNC_EXIT("[KMS]");
+	return ret;
 }
 
 static struct drm_encoder *construct_encoder(struct mdp5_kms *mdp5_kms,
@@ -362,14 +421,17 @@ static struct drm_encoder *construct_encoder(struct mdp5_kms *mdp5_kms,
 	struct msm_drm_private *priv = dev->dev_private;
 	struct drm_encoder *encoder;
 
+	MSM_FUNC_ENTER("[KMS]");
+
 	encoder = mdp5_encoder_init(dev, intf, ctl);
 	if (IS_ERR(encoder)) {
 		DRM_DEV_ERROR(dev->dev, "failed to construct encoder\n");
+		MSM_FUNC_EXIT("[KMS]");
 		return encoder;
 	}
 
 	priv->encoders[priv->num_encoders++] = encoder;
-
+	MSM_FUNC_EXIT("[KMS]");
 	return encoder;
 }
 
@@ -378,17 +440,20 @@ static int get_dsi_id_from_intf(const struct mdp5_cfg_hw *hw_cfg, int intf_num)
 	const enum mdp5_intf_type *intfs = hw_cfg->intf.connect;
 	const int intf_cnt = ARRAY_SIZE(hw_cfg->intf.connect);
 	int id = 0, i;
+	int ret = -EINVAL;
+
+	MSM_FUNC_ENTER("[KMS]");
 
 	for (i = 0; i < intf_cnt; i++) {
 		if (intfs[i] == INTF_DSI) {
 			if (intf_num == i)
-				return id;
-
-			id++;
+				ret = id;
+			else
+				id++;
 		}
 	}
-
-	return -EINVAL;
+	MSM_FUNC_EXIT("[KMS]");
+	return ret;
 }
 
 static int modeset_init_intf(struct mdp5_kms *mdp5_kms,
@@ -401,6 +466,7 @@ static int modeset_init_intf(struct mdp5_kms *mdp5_kms,
 	struct drm_encoder *encoder;
 	int ret = 0;
 
+	MSM_FUNC_ENTER("[KMS]");
 	MDP5_DBG("Initializing interface type: %d, num: %d", intf->type, intf->num);
 
 	switch (intf->type) {
@@ -496,7 +562,7 @@ static int modeset_init_intf(struct mdp5_kms *mdp5_kms,
 		ret = -EINVAL;
 		break;
 	}
-
+	MSM_FUNC_EXIT("[KMS]");
 	return ret;
 }
 
@@ -640,12 +706,14 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 	int irq, i, ret;
 	struct device *iommu_dev;
 
+	MSM_FUNC_ENTER("[KMS]");
 	MDP5_DBG("Initializing MDP5 KMS");
 
 	/* priv->kms would have been populated by the MDP5 driver */
 	kms = priv->kms;
 	if (!kms) {
 		MDP5_DBG("No KMS available in private data");
+		MSM_FUNC_EXIT("[KMS]");
 		return NULL;
 	}
 	MDP5_DBG("Found existing KMS");
@@ -747,10 +815,12 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 	dev->max_vblank_count = 0; /* max_vblank_count is set on each CRTC */
 	dev->vblank_disable_immediate = true;
 
+	MSM_FUNC_EXIT("[KMS]");
 	return kms;
 fail:
 	if (kms)
 		mdp5_kms_destroy(kms);
+	MSM_FUNC_EXIT("[KMS]");
 	return ERR_PTR(ret);
 }
 
@@ -1142,12 +1212,16 @@ static struct platform_driver mdp5_driver = {
 
 void __init msm_mdp_register(void)
 {
+	MSM_FUNC_ENTER("[KMS]");
 	DBG("");
 	platform_driver_register(&mdp5_driver);
+	MSM_FUNC_EXIT("[KMS]");
 }
 
 void __exit msm_mdp_unregister(void)
 {
+	MSM_FUNC_ENTER("[KMS]");
 	DBG("");
 	platform_driver_unregister(&mdp5_driver);
+	MSM_FUNC_EXIT("[KMS]");
 }

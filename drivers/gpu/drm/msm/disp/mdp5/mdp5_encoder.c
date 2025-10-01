@@ -13,14 +13,21 @@
 static struct mdp5_kms *get_kms(struct drm_encoder *encoder)
 {
 	struct msm_drm_private *priv = encoder->dev->dev_private;
-	return to_mdp5_kms(to_mdp_kms(priv->kms));
+	struct mdp5_kms *mdp5_kms;
+
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
+	mdp5_kms = to_mdp5_kms(to_mdp_kms(priv->kms));
+	MSM_FUNC_EXIT("[ENC] kms=%p", mdp5_kms);
+	return mdp5_kms;
 }
 
 static void mdp5_encoder_destroy(struct drm_encoder *encoder)
 {
 	struct mdp5_encoder *mdp5_encoder = to_mdp5_encoder(encoder);
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
 	drm_encoder_cleanup(encoder);
 	kfree(mdp5_encoder);
+	MSM_FUNC_EXIT("[ENC] encoder=%p", encoder);
 }
 
 static const struct drm_encoder_funcs mdp5_encoder_funcs = {
@@ -45,6 +52,10 @@ static void mdp5_vid_encoder_mode_set(struct drm_encoder *encoder,
 	mode = adjusted_mode;
 
 	DBG("set mode: " DRM_MODE_FMT, DRM_MODE_ARG(mode));
+	MDP5_ENC_DBG("vid_mode_set encoder=%p intf=%d mode=%dx%d@%d", encoder,
+		intf, mode->hdisplay, mode->vdisplay,
+		drm_mode_vrefresh(mode));
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
 
 	ctrl_pol = 0;
 
@@ -126,6 +137,8 @@ static void mdp5_vid_encoder_mode_set(struct drm_encoder *encoder,
 	spin_unlock_irqrestore(&mdp5_encoder->intf_lock, flags);
 
 	mdp5_crtc_set_pipeline(encoder->crtc);
+	MDP5_ENC_DBG("vid_mode_set done encoder=%p", encoder);
+	MSM_FUNC_EXIT("[ENC] encoder=%p", encoder);
 }
 
 static void mdp5_vid_encoder_disable(struct drm_encoder *encoder)
@@ -138,16 +151,21 @@ static void mdp5_vid_encoder_disable(struct drm_encoder *encoder)
 	struct mdp5_interface *intf = mdp5_encoder->intf;
 	int intfn = mdp5_encoder->intf->num;
 	unsigned long flags;
+	u32 flush_mask = mdp_ctl_flush_mask_encoder(intf);
+
+	MDP5_ENC_DBG("vid_disable encoder=%p enabled=%d", encoder,
+		mdp5_encoder->enabled);
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
 
 	if (WARN_ON(!mdp5_encoder->enabled))
-		return;
+		goto out;
 
 	mdp5_ctl_set_encoder_state(ctl, pipeline, false);
 
 	spin_lock_irqsave(&mdp5_encoder->intf_lock, flags);
 	mdp5_write(mdp5_kms, REG_MDP5_INTF_TIMING_ENGINE_EN(intfn), 0);
 	spin_unlock_irqrestore(&mdp5_encoder->intf_lock, flags);
-	mdp5_ctl_commit(ctl, pipeline, mdp_ctl_flush_mask_encoder(intf), true);
+	mdp5_ctl_commit(ctl, pipeline, flush_mask, true);
 
 	/*
 	 * Wait for a vsync so we know the ENABLE=0 latched before
@@ -160,6 +178,9 @@ static void mdp5_vid_encoder_disable(struct drm_encoder *encoder)
 	mdp_irq_wait(&mdp5_kms->base, intf2vblank(mixer, intf));
 
 	mdp5_encoder->enabled = false;
+	MDP5_ENC_DBG("vid_disable complete encoder=%p", encoder);
+	out:
+	MSM_FUNC_EXIT("[ENC] encoder=%p", encoder);
 }
 
 static void mdp5_vid_encoder_enable(struct drm_encoder *encoder)
@@ -171,18 +192,26 @@ static void mdp5_vid_encoder_enable(struct drm_encoder *encoder)
 	struct mdp5_pipeline *pipeline = mdp5_crtc_get_pipeline(encoder->crtc);
 	int intfn = intf->num;
 	unsigned long flags;
+	u32 flush_mask = mdp_ctl_flush_mask_encoder(intf);
+
+	MDP5_ENC_DBG("vid_enable encoder=%p enabled=%d", encoder,
+		mdp5_encoder->enabled);
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
 
 	if (WARN_ON(mdp5_encoder->enabled))
-		return;
+		goto out;
 
 	spin_lock_irqsave(&mdp5_encoder->intf_lock, flags);
 	mdp5_write(mdp5_kms, REG_MDP5_INTF_TIMING_ENGINE_EN(intfn), 1);
 	spin_unlock_irqrestore(&mdp5_encoder->intf_lock, flags);
-	mdp5_ctl_commit(ctl, pipeline, mdp_ctl_flush_mask_encoder(intf), true);
+	mdp5_ctl_commit(ctl, pipeline, flush_mask, true);
 
 	mdp5_ctl_set_encoder_state(ctl, pipeline, true);
 
 	mdp5_encoder->enabled = true;
+	MDP5_ENC_DBG("vid_enable complete encoder=%p", encoder);
+out:
+	MSM_FUNC_EXIT("[ENC] encoder=%p", encoder);
 }
 
 static void mdp5_encoder_mode_set(struct drm_encoder *encoder,
@@ -191,22 +220,29 @@ static void mdp5_encoder_mode_set(struct drm_encoder *encoder,
 {
 	struct mdp5_encoder *mdp5_encoder = to_mdp5_encoder(encoder);
 	struct mdp5_interface *intf = mdp5_encoder->intf;
+	MDP5_ENC_DBG("mode_set mux encoder=%p intf_type=%d", encoder,
+		intf->type);
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
 
 	if (intf->mode == MDP5_INTF_DSI_MODE_COMMAND)
 		mdp5_cmd_encoder_mode_set(encoder, mode, adjusted_mode);
 	else
 		mdp5_vid_encoder_mode_set(encoder, mode, adjusted_mode);
+	MDP5_ENC_DBG("mode_set mux complete encoder=%p", encoder);
+	MSM_FUNC_EXIT("[ENC] encoder=%p", encoder);
 }
 
 static void mdp5_encoder_disable(struct drm_encoder *encoder)
 {
 	struct mdp5_encoder *mdp5_encoder = to_mdp5_encoder(encoder);
 	struct mdp5_interface *intf = mdp5_encoder->intf;
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
 
 	if (intf->mode == MDP5_INTF_DSI_MODE_COMMAND)
 		mdp5_cmd_encoder_disable(encoder);
 	else
 		mdp5_vid_encoder_disable(encoder);
+	MSM_FUNC_EXIT("[ENC] encoder=%p", encoder);
 }
 
 static void mdp5_encoder_enable(struct drm_encoder *encoder)
@@ -215,6 +251,7 @@ static void mdp5_encoder_enable(struct drm_encoder *encoder)
 	struct mdp5_interface *intf = mdp5_encoder->intf;
 	/* this isn't right I think */
 	struct drm_crtc_state *cstate = encoder->crtc->state;
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
 
 	mdp5_encoder_mode_set(encoder, &cstate->mode, &cstate->adjusted_mode);
 
@@ -222,6 +259,7 @@ static void mdp5_encoder_enable(struct drm_encoder *encoder)
 		mdp5_cmd_encoder_enable(encoder);
 	else
 		mdp5_vid_encoder_enable(encoder);
+	MSM_FUNC_EXIT("[ENC] encoder=%p", encoder);
 }
 
 static int mdp5_encoder_atomic_check(struct drm_encoder *encoder,
@@ -232,6 +270,7 @@ static int mdp5_encoder_atomic_check(struct drm_encoder *encoder,
 	struct mdp5_crtc_state *mdp5_cstate = to_mdp5_crtc_state(crtc_state);
 	struct mdp5_interface *intf = mdp5_encoder->intf;
 	struct mdp5_ctl *ctl = mdp5_encoder->ctl;
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
 
 	mdp5_cstate->ctl = ctl;
 	mdp5_cstate->pipeline.intf = intf;
@@ -246,8 +285,8 @@ static int mdp5_encoder_atomic_check(struct drm_encoder *encoder,
 	 */
 	if (drm_atomic_crtc_needs_modeset(crtc_state))
 		mdp5_cstate->defer_start = true;
-
-	return 0;
+ 	MSM_FUNC_EXIT("[ENC] encoder=%p", encoder);
+ 	return 0;
 }
 
 static const struct drm_encoder_helper_funcs mdp5_encoder_helper_funcs = {
@@ -261,8 +300,12 @@ int mdp5_encoder_get_linecount(struct drm_encoder *encoder)
 	struct mdp5_encoder *mdp5_encoder = to_mdp5_encoder(encoder);
 	struct mdp5_kms *mdp5_kms = get_kms(encoder);
 	int intf = mdp5_encoder->intf->num;
+	int ret;
 
-	return mdp5_read(mdp5_kms, REG_MDP5_INTF_LINE_COUNT(intf));
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
+	ret = mdp5_read(mdp5_kms, REG_MDP5_INTF_LINE_COUNT(intf));
+	MSM_FUNC_EXIT("[ENC] encoder=%p line=%d", encoder, ret);
+	return ret;
 }
 
 u32 mdp5_encoder_get_framecount(struct drm_encoder *encoder)
@@ -270,8 +313,12 @@ u32 mdp5_encoder_get_framecount(struct drm_encoder *encoder)
 	struct mdp5_encoder *mdp5_encoder = to_mdp5_encoder(encoder);
 	struct mdp5_kms *mdp5_kms = get_kms(encoder);
 	int intf = mdp5_encoder->intf->num;
+	u32 ret;
 
-	return mdp5_read(mdp5_kms, REG_MDP5_INTF_FRAME_COUNT(intf));
+	MSM_FUNC_ENTER("[ENC] encoder=%p", encoder);
+	ret = mdp5_read(mdp5_kms, REG_MDP5_INTF_FRAME_COUNT(intf));
+	MSM_FUNC_EXIT("[ENC] encoder=%p frame=%u", encoder, ret);
+	return ret;
 }
 
 int mdp5_vid_encoder_set_split_display(struct drm_encoder *encoder,
@@ -283,9 +330,12 @@ int mdp5_vid_encoder_set_split_display(struct drm_encoder *encoder,
 	struct device *dev;
 	int intf_num;
 	u32 data = 0;
+	int ret = 0;
 
 	if (!encoder || !slave_encoder)
 		return -EINVAL;
+
+	MSM_FUNC_ENTER("[ENC] encoder=%p slave=%p", encoder, slave_encoder);
 
 	mdp5_kms = get_kms(encoder);
 	intf_num = mdp5_encoder->intf->num;
@@ -298,7 +348,7 @@ int mdp5_vid_encoder_set_split_display(struct drm_encoder *encoder,
 	else if (intf_num == 2)
 		data |= MDP5_SPLIT_DPL_LOWER_INTF1_TG_SYNC;
 	else
-		return -EINVAL;
+		goto out_err;
 
 	dev = &mdp5_kms->pdev->dev;
 	/* Make sure clocks are on when connectors calling this function. */
@@ -312,14 +362,21 @@ int mdp5_vid_encoder_set_split_display(struct drm_encoder *encoder,
 	mdp5_ctl_pair(mdp5_encoder->ctl, mdp5_slave_enc->ctl, true);
 
 	pm_runtime_put_sync(dev);
+	ret = 0;
+	MSM_FUNC_EXIT("[ENC] encoder=%p ret=%d", encoder, ret);
+	return ret;
 
-	return 0;
+out_err:
+	ret = -EINVAL;
+	MSM_FUNC_EXIT("[ENC] encoder=%p ret=%d", encoder, ret);
+	return ret;
 }
 
 void mdp5_encoder_set_intf_mode(struct drm_encoder *encoder, bool cmd_mode)
 {
 	struct mdp5_encoder *mdp5_encoder = to_mdp5_encoder(encoder);
 	struct mdp5_interface *intf = mdp5_encoder->intf;
+	MSM_FUNC_ENTER("[ENC] encoder=%p cmd_mode=%d", encoder, cmd_mode);
 
 	/* TODO: Expand this to set writeback modes too */
 	if (cmd_mode) {
@@ -331,6 +388,7 @@ void mdp5_encoder_set_intf_mode(struct drm_encoder *encoder, bool cmd_mode)
 		else
 			intf->mode = MDP5_INTF_MODE_NONE;
 	}
+	MSM_FUNC_EXIT("[ENC] encoder=%p mode=%d", encoder, intf->mode);
 }
 
 /* initialize encoder */
@@ -343,6 +401,7 @@ struct drm_encoder *mdp5_encoder_init(struct drm_device *dev,
 	int enc_type = (intf->type == INTF_DSI) ?
 		DRM_MODE_ENCODER_DSI : DRM_MODE_ENCODER_TMDS;
 	int ret;
+	MSM_FUNC_ENTER("[ENC] dev=%p intf=%d", dev, intf->type);
 
 	mdp5_encoder = kzalloc(sizeof(*mdp5_encoder), GFP_KERNEL);
 	if (!mdp5_encoder) {
@@ -359,12 +418,12 @@ struct drm_encoder *mdp5_encoder_init(struct drm_device *dev,
 	drm_encoder_init(dev, encoder, &mdp5_encoder_funcs, enc_type, NULL);
 
 	drm_encoder_helper_add(encoder, &mdp5_encoder_helper_funcs);
-
+	MSM_FUNC_EXIT("[ENC] encoder=%p", encoder);
 	return encoder;
 
 fail:
 	if (encoder)
 		mdp5_encoder_destroy(encoder);
-
+	MSM_FUNC_EXIT("[ENC] encoder=%p ret=%d", encoder, ret);
 	return ERR_PTR(ret);
 }

@@ -14,26 +14,33 @@ msm_gem_address_space_destroy(struct kref *kref)
 	struct msm_gem_address_space *aspace = container_of(kref,
 			struct msm_gem_address_space, kref);
 
+	MSM_FUNC_ENTER("aspace=%p", aspace);
+
 	drm_mm_takedown(&aspace->mm);
 	if (aspace->mmu)
 		aspace->mmu->funcs->destroy(aspace->mmu);
 	put_pid(aspace->pid);
 	kfree(aspace);
+	MSM_FUNC_EXIT("");
 }
 
 
 void msm_gem_address_space_put(struct msm_gem_address_space *aspace)
 {
+	MSM_FUNC_ENTER("aspace=%p", aspace);
 	if (aspace)
 		kref_put(&aspace->kref, msm_gem_address_space_destroy);
+	MSM_FUNC_EXIT("");
 }
 
 struct msm_gem_address_space *
 msm_gem_address_space_get(struct msm_gem_address_space *aspace)
 {
+	MSM_FUNC_ENTER("aspace=%p", aspace);
 	if (!IS_ERR_OR_NULL(aspace))
 		kref_get(&aspace->kref);
 
+	MSM_FUNC_EXIT("aspace=%p", aspace);
 	return aspace;
 }
 
@@ -43,26 +50,32 @@ void msm_gem_purge_vma(struct msm_gem_address_space *aspace,
 {
 	unsigned size = vma->node.size << PAGE_SHIFT;
 
+	MSM_FUNC_ENTER("aspace=%p vma=%p", aspace, vma);
 	/* Print a message if we try to purge a vma in use */
 	if (WARN_ON(vma->inuse > 0))
-		return;
+		goto out;
 
 	/* Don't do anything if the memory isn't mapped */
 	if (!vma->mapped)
-		return;
+		goto out;
 
 	if (aspace->mmu)
 		aspace->mmu->funcs->unmap(aspace->mmu, vma->iova, size);
 
 	vma->mapped = false;
+
+out:
+	MSM_FUNC_EXIT("mapped=%d inuse=%d", vma->mapped, vma->inuse);
 }
 
 /* Remove reference counts for the mapping */
 void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma)
 {
+	MSM_FUNC_ENTER("aspace=%p vma=%p", aspace, vma);
 	if (!WARN_ON(!vma->iova))
 		vma->inuse--;
+	MSM_FUNC_EXIT("inuse=%d", vma->inuse);
 }
 
 int
@@ -72,6 +85,9 @@ msm_gem_map_vma(struct msm_gem_address_space *aspace,
 {
 	unsigned size = npages << PAGE_SHIFT;
 	int ret = 0;
+	bool mapped = false;
+
+	MSM_FUNC_ENTER("aspace=%p vma=%p npages=%d", aspace, vma, npages);
 
 	if (WARN_ON(!vma->iova))
 		return -EINVAL;
@@ -80,7 +96,7 @@ msm_gem_map_vma(struct msm_gem_address_space *aspace,
 	vma->inuse++;
 
 	if (vma->mapped)
-		return 0;
+		goto out;
 
 	vma->mapped = true;
 
@@ -93,6 +109,8 @@ msm_gem_map_vma(struct msm_gem_address_space *aspace,
 		vma->inuse--;
 	}
 
+out:
+	MSM_FUNC_EXIT("ret=%d mapped=%d inuse=%d", ret, vma->mapped, vma->inuse);
 	return ret;
 }
 
@@ -100,8 +118,9 @@ msm_gem_map_vma(struct msm_gem_address_space *aspace,
 void msm_gem_close_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma)
 {
+	MSM_FUNC_ENTER("aspace=%p vma=%p", aspace, vma);
 	if (WARN_ON(vma->inuse > 0 || vma->mapped))
-		return;
+		goto out;
 
 	spin_lock(&aspace->lock);
 	if (vma->iova)
@@ -111,6 +130,10 @@ void msm_gem_close_vma(struct msm_gem_address_space *aspace,
 	vma->iova = 0;
 
 	msm_gem_address_space_put(aspace);
+
+out:
+	MSM_FUNC_EXIT("iova=0x%llx inuse=%d mapped=%d",
+		(unsigned long long)vma->iova, vma->inuse, vma->mapped);
 }
 
 /* Initialize a new vma and allocate an iova for it */
@@ -120,6 +143,7 @@ int msm_gem_init_vma(struct msm_gem_address_space *aspace,
 {
 	int ret;
 
+	MSM_FUNC_ENTER("aspace=%p vma=%p npages=%d", aspace, vma, npages);
 	if (WARN_ON(vma->iova))
 		return -EBUSY;
 
@@ -129,14 +153,16 @@ int msm_gem_init_vma(struct msm_gem_address_space *aspace,
 	spin_unlock(&aspace->lock);
 
 	if (ret)
-		return ret;
+		goto out;
 
 	vma->iova = vma->node.start << PAGE_SHIFT;
 	vma->mapped = false;
 
 	kref_get(&aspace->kref);
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("ret=%d iova=0x%llx", ret, (unsigned long long)vma->iova);
+	return ret;
 }
 
 struct msm_gem_address_space *
@@ -145,6 +171,7 @@ msm_gem_address_space_create(struct msm_mmu *mmu, const char *name,
 {
 	struct msm_gem_address_space *aspace;
 
+	MSM_FUNC_ENTER("mmu=%p name=%s size=0x%llx", mmu, name, size);
 	if (IS_ERR(mmu))
 		return ERR_CAST(mmu);
 
@@ -160,5 +187,6 @@ msm_gem_address_space_create(struct msm_mmu *mmu, const char *name,
 
 	kref_init(&aspace->kref);
 
+	MSM_FUNC_EXIT("aspace=%p", aspace);
 	return aspace;
 }

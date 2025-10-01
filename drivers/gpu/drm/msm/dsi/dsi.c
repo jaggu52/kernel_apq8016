@@ -7,29 +7,43 @@
 
 struct drm_encoder *msm_dsi_get_encoder(struct msm_dsi *msm_dsi)
 {
+	MSM_FUNC_ENTER("[DSI] get_encoder msm_dsi=%p", msm_dsi);
 	if (!msm_dsi || !msm_dsi_device_connected(msm_dsi))
+	{
+		MSM_FUNC_EXIT("[DSI] encoder=NULL");
 		return NULL;
+	}
 
+	MSM_FUNC_EXIT("[DSI] encoder=%p", msm_dsi->encoder);
 	return msm_dsi->encoder;
 }
 
 bool msm_dsi_is_cmd_mode(struct msm_dsi *msm_dsi)
 {
-	unsigned long host_flags = msm_dsi_host_get_mode_flags(msm_dsi->host);
+	unsigned long host_flags;
+	bool cmd_mode;
 
-	return !(host_flags & MIPI_DSI_MODE_VIDEO);
+	MSM_FUNC_ENTER("[DSI] is_cmd_mode msm_dsi=%p", msm_dsi);
+	host_flags = msm_dsi_host_get_mode_flags(msm_dsi->host);
+	cmd_mode = !(host_flags & MIPI_DSI_MODE_VIDEO);
+	MSM_FUNC_EXIT("[DSI] cmd_mode=%d", cmd_mode);
+	return cmd_mode;
 }
 
 static int dsi_get_phy(struct msm_dsi *msm_dsi)
 {
 	struct platform_device *pdev = msm_dsi->pdev;
-	struct platform_device *phy_pdev;
+	struct platform_device *phy_pdev = NULL;
 	struct device_node *phy_node;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[DSI] get_phy msm_dsi=%p", msm_dsi);
 
 	phy_node = of_parse_phandle(pdev->dev.of_node, "phys", 0);
 	if (!phy_node) {
 		DRM_DEV_ERROR(&pdev->dev, "cannot find phy device\n");
-		return -ENXIO;
+		ret = -ENXIO;
+		goto out;
 	}
 
 	phy_pdev = of_find_device_by_node(phy_node);
@@ -42,16 +56,21 @@ static int dsi_get_phy(struct msm_dsi *msm_dsi)
 
 	if (!phy_pdev || !msm_dsi->phy) {
 		DRM_DEV_ERROR(&pdev->dev, "%s: phy driver is not ready\n", __func__);
-		return -EPROBE_DEFER;
+		ret = -EPROBE_DEFER;
+		goto out;
 	}
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("[DSI] ret=%d", ret);
+	return ret;
 }
 
 static void dsi_destroy(struct msm_dsi *msm_dsi)
 {
 	if (!msm_dsi)
 		return;
+
+	MSM_FUNC_ENTER("[DSI] destroy msm_dsi=%p", msm_dsi);
 
 	msm_dsi_manager_unregister(msm_dsi);
 
@@ -67,6 +86,7 @@ static void dsi_destroy(struct msm_dsi *msm_dsi)
 	}
 
 	platform_set_drvdata(msm_dsi->pdev, NULL);
+	MSM_FUNC_EXIT("[DSI] destroy msm_dsi=%p", msm_dsi);
 }
 
 static struct msm_dsi *dsi_init(struct platform_device *pdev)
@@ -74,12 +94,18 @@ static struct msm_dsi *dsi_init(struct platform_device *pdev)
 	struct msm_dsi *msm_dsi;
 	int ret;
 
-	if (!pdev)
+	MSM_FUNC_ENTER("[DSI] init pdev=%p", pdev);
+
+	if (!pdev) {
+		MSM_FUNC_EXIT("[DSI] ret=%d", -ENXIO);
 		return ERR_PTR(-ENXIO);
+	}
 
 	msm_dsi = devm_kzalloc(&pdev->dev, sizeof(*msm_dsi), GFP_KERNEL);
-	if (!msm_dsi)
+	if (!msm_dsi) {
+		MSM_FUNC_EXIT("[DSI] ret=%d", -ENOMEM);
 		return ERR_PTR(-ENOMEM);
+	}
 	DBG("dsi probed=%p", msm_dsi);
 
 	msm_dsi->id = -1;
@@ -101,10 +127,12 @@ static struct msm_dsi *dsi_init(struct platform_device *pdev)
 	if (ret)
 		goto destroy_dsi;
 
+	MSM_FUNC_EXIT("[DSI] msm_dsi=%p", msm_dsi);
 	return msm_dsi;
 
 destroy_dsi:
 	dsi_destroy(msm_dsi);
+	MSM_FUNC_EXIT("[DSI] ret=%d", ret);
 	return ERR_PTR(ret);
 }
 
@@ -114,20 +142,26 @@ static int dsi_bind(struct device *dev, struct device *master, void *data)
 	struct msm_drm_private *priv = drm->dev_private;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_dsi *msm_dsi;
+	int ret = 0;
 
+	MSM_FUNC_ENTER("[DSI] bind dev=%p master=%p", dev, master);
 	DBG("");
 	msm_dsi = dsi_init(pdev);
 	if (IS_ERR(msm_dsi)) {
 		/* Don't fail the bind if the dsi port is not connected */
-		if (PTR_ERR(msm_dsi) == -ENODEV)
-			return 0;
-		else
-			return PTR_ERR(msm_dsi);
+		ret = PTR_ERR(msm_dsi);
+		if (ret == -ENODEV)
+			ret = 0;
+		goto out;
 	}
 
 	priv->dsi[msm_dsi->id] = msm_dsi;
 
-	return 0;
+	ret = 0;
+
+out:
+	MSM_FUNC_EXIT("[DSI] bind ret=%d", ret);
+	return ret;
 }
 
 static void dsi_unbind(struct device *dev, struct device *master,
@@ -138,10 +172,12 @@ static void dsi_unbind(struct device *dev, struct device *master,
 	struct msm_dsi *msm_dsi = dev_get_drvdata(dev);
 	int id = msm_dsi->id;
 
+	MSM_FUNC_ENTER("[DSI] unbind dev=%p master=%p", dev, master);
 	if (priv->dsi[id]) {
 		dsi_destroy(msm_dsi);
 		priv->dsi[id] = NULL;
 	}
+	MSM_FUNC_EXIT("[DSI] unbind dev=%p", dev);
 }
 
 static const struct component_ops dsi_ops = {
@@ -151,13 +187,20 @@ static const struct component_ops dsi_ops = {
 
 static int dsi_dev_probe(struct platform_device *pdev)
 {
-	return component_add(&pdev->dev, &dsi_ops);
+	int ret;
+
+	MSM_FUNC_ENTER("[DSI] dev_probe pdev=%p", pdev);
+	ret = component_add(&pdev->dev, &dsi_ops);
+	MSM_FUNC_EXIT("[DSI] dev_probe ret=%d", ret);
+	return ret;
 }
 
 static int dsi_dev_remove(struct platform_device *pdev)
 {
+	MSM_FUNC_ENTER("[DSI] dev_remove pdev=%p", pdev);
 	DBG("");
 	component_del(&pdev->dev, &dsi_ops);
+	MSM_FUNC_EXIT("[DSI] dev_remove ret=0");
 	return 0;
 }
 
@@ -184,16 +227,20 @@ static struct platform_driver dsi_driver = {
 
 void __init msm_dsi_register(void)
 {
+	MSM_FUNC_ENTER("[DSI] register");
 	DBG("");
 	msm_dsi_phy_driver_register();
 	platform_driver_register(&dsi_driver);
+	MSM_FUNC_EXIT("[DSI] register");
 }
 
 void __exit msm_dsi_unregister(void)
 {
+	MSM_FUNC_ENTER("[DSI] unregister");
 	DBG("");
 	msm_dsi_phy_driver_unregister();
 	platform_driver_unregister(&dsi_driver);
+	MSM_FUNC_EXIT("[DSI] unregister");
 }
 
 int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
@@ -203,8 +250,14 @@ int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
 	struct drm_bridge *ext_bridge;
 	int ret;
 
+	MSM_FUNC_ENTER("[DSI] modeset_init msm_dsi=%p dev=%p encoder=%p",
+		       msm_dsi, dev, encoder);
+
 	if (WARN_ON(!encoder) || WARN_ON(!msm_dsi) || WARN_ON(!dev))
+	{
+		MSM_FUNC_EXIT("[DSI] ret=%d", -EINVAL);
 		return -EINVAL;
+	}
 
 	priv = dev->dev_private;
 	msm_dsi->dev = dev;
@@ -251,7 +304,8 @@ int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
 	priv->bridges[priv->num_bridges++]       = msm_dsi->bridge;
 	priv->connectors[priv->num_connectors++] = msm_dsi->connector;
 
-	return 0;
+	ret = 0;
+	goto out;
 fail:
 	/* bridge/connector are normally destroyed by drm: */
 	if (msm_dsi->bridge) {
@@ -265,12 +319,15 @@ fail:
 
 	msm_dsi->connector = NULL;
 
+out:
+	MSM_FUNC_EXIT("[DSI] ret=%d", ret);
 	return ret;
 }
 
 void msm_dsi_snapshot(struct msm_disp_state *disp_state, struct msm_dsi *msm_dsi)
 {
+	MSM_FUNC_ENTER("[DSI] snapshot msm_dsi=%p", msm_dsi);
 	msm_dsi_host_snapshot(disp_state, msm_dsi->host);
 	msm_dsi_phy_snapshot(disp_state, msm_dsi->phy);
+	MSM_FUNC_EXIT("[DSI] snapshot");
 }
-

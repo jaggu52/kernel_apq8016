@@ -92,26 +92,35 @@ struct clk *msm_clk_bulk_get_clock(struct clk_bulk_data *bulk, int count,
 {
 	int i;
 	char n[32];
+	struct clk *clk = NULL;
+
+	MSM_FUNC_ENTER("name=%s count=%d", name, count);
 
 	snprintf(n, sizeof(n), "%s_clk", name);
 
 	for (i = 0; bulk && i < count; i++) {
 		if (!strcmp(bulk[i].id, name) || !strcmp(bulk[i].id, n))
-			return bulk[i].clk;
+			clk = bulk[i].clk;
 	}
 
 
-	return NULL;
+	MSM_FUNC_EXIT("clk=%p", clk);
+	return clk;
 }
 
 struct clk *msm_clk_get(struct platform_device *pdev, const char *name)
 {
 	struct clk *clk;
 	char name2[32];
+	struct clk *ret_clk;
+
+	MSM_FUNC_ENTER("name=%s", name);
 
 	clk = devm_clk_get(&pdev->dev, name);
-	if (!IS_ERR(clk) || PTR_ERR(clk) == -EPROBE_DEFER)
-		return clk;
+	if (!IS_ERR(clk) || PTR_ERR(clk) == -EPROBE_DEFER) {
+		ret_clk = clk;
+		goto out;
+	}
 
 	snprintf(name2, sizeof(name2), "%s_clk", name);
 
@@ -120,7 +129,11 @@ struct clk *msm_clk_get(struct platform_device *pdev, const char *name)
 		dev_warn(&pdev->dev, "Using legacy clk name binding.  Use "
 				"\"%s\" instead of \"%s\"\n", name, name2);
 
-	return clk;
+	ret_clk = clk;
+
+out:
+	MSM_FUNC_EXIT("clk=%p", ret_clk);
+	return ret_clk;
 }
 
 static void __iomem *_msm_ioremap(struct platform_device *pdev, const char *name,
@@ -129,6 +142,10 @@ static void __iomem *_msm_ioremap(struct platform_device *pdev, const char *name
 	struct resource *res;
 	unsigned long size;
 	void __iomem *ptr;
+	void __iomem *mapped = ERR_PTR(-EINVAL);
+
+	MSM_FUNC_ENTER("name=%s dbgname=%s quiet=%d", name ? name : "(null)",
+		      dbgname ? dbgname : "(null)", quiet);
 
 	if (name)
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
@@ -138,7 +155,7 @@ static void __iomem *_msm_ioremap(struct platform_device *pdev, const char *name
 	if (!res) {
 		if (!quiet)
 			DRM_DEV_ERROR(&pdev->dev, "failed to get memory resource: %s\n", name);
-		return ERR_PTR(-EINVAL);
+		goto out;
 	}
 
 	size = resource_size(res);
@@ -147,7 +164,8 @@ static void __iomem *_msm_ioremap(struct platform_device *pdev, const char *name
 	if (!ptr) {
 		if (!quiet)
 			DRM_DEV_ERROR(&pdev->dev, "failed to ioremap: %s\n", name);
-		return ERR_PTR(-ENOMEM);
+		mapped = ERR_PTR(-ENOMEM);
+		goto out;
 	}
 
 	if (reglog)
@@ -156,25 +174,47 @@ static void __iomem *_msm_ioremap(struct platform_device *pdev, const char *name
 	if (psize)
 		*psize = size;
 
-	return ptr;
+	mapped = ptr;
+
+out:
+	MSM_FUNC_EXIT("addr=%p", mapped);
+	return mapped;
 }
 
 void __iomem *msm_ioremap(struct platform_device *pdev, const char *name,
 			  const char *dbgname)
 {
-	return _msm_ioremap(pdev, name, dbgname, false, NULL);
+	void __iomem *ptr;
+
+	MSM_FUNC_ENTER("name=%s dbgname=%s", name ? name : "(null)",
+		      dbgname ? dbgname : "(null)");
+	ptr = _msm_ioremap(pdev, name, dbgname, false, NULL);
+	MSM_FUNC_EXIT("addr=%p", ptr);
+	return ptr;
 }
 
 void __iomem *msm_ioremap_quiet(struct platform_device *pdev, const char *name,
 				const char *dbgname)
 {
-	return _msm_ioremap(pdev, name, dbgname, true, NULL);
+	void __iomem *ptr;
+
+	MSM_FUNC_ENTER("name=%s dbgname=%s", name ? name : "(null)",
+		      dbgname ? dbgname : "(null)");
+	ptr = _msm_ioremap(pdev, name, dbgname, true, NULL);
+	MSM_FUNC_EXIT("addr=%p", ptr);
+	return ptr;
 }
 
 void __iomem *msm_ioremap_size(struct platform_device *pdev, const char *name,
 			  const char *dbgname, phys_addr_t *psize)
 {
-	return _msm_ioremap(pdev, name, dbgname, false, psize);
+	void __iomem *ptr;
+
+	MSM_FUNC_ENTER("name=%s dbgname=%s", name ? name : "(null)",
+		      dbgname ? dbgname : "(null)");
+	ptr = _msm_ioremap(pdev, name, dbgname, false, psize);
+	MSM_FUNC_EXIT("addr=%p", ptr);
+	return ptr;
 }
 
 void msm_writel(u32 data, void __iomem *addr)
@@ -205,10 +245,14 @@ static irqreturn_t msm_irq(int irq, void *arg)
 	struct drm_device *dev = arg;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+	irqreturn_t ret;
 
+	MSM_FUNC_ENTER("irq=%d", irq);
 	BUG_ON(!kms);
 
-	return kms->funcs->irq(kms);
+	ret = kms->funcs->irq(kms);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static void msm_irq_preinstall(struct drm_device *dev)
@@ -216,44 +260,53 @@ static void msm_irq_preinstall(struct drm_device *dev)
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	BUG_ON(!kms);
 
 	kms->funcs->irq_preinstall(kms);
+	MSM_FUNC_EXIT("");
 }
 
 static int msm_irq_postinstall(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+	int ret = 0;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	BUG_ON(!kms);
 
 	if (kms->funcs->irq_postinstall)
-		return kms->funcs->irq_postinstall(kms);
+		ret = kms->funcs->irq_postinstall(kms);
 
-	return 0;
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_irq_install(struct drm_device *dev, unsigned int irq)
 {
 	int ret;
 
-	if (irq == IRQ_NOTCONNECTED)
-		return -ENOTCONN;
+	MSM_FUNC_ENTER("irq=%u", irq);
+
+	if (irq == IRQ_NOTCONNECTED) {
+		ret = -ENOTCONN;
+		goto out;
+	}
 
 	msm_irq_preinstall(dev);
 
 	ret = request_irq(irq, msm_irq, 0, dev->driver->name, dev);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = msm_irq_postinstall(dev);
-	if (ret) {
+	if (ret)
 		free_irq(irq, dev);
-		return ret;
-	}
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static void msm_irq_uninstall(struct drm_device *dev)
@@ -261,8 +314,10 @@ static void msm_irq_uninstall(struct drm_device *dev)
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	kms->funcs->irq_uninstall(kms);
 	free_irq(kms->irq, dev);
+	MSM_FUNC_EXIT("");
 }
 
 struct msm_vblank_work {
@@ -279,22 +334,28 @@ static void vblank_ctrl_worker(struct work_struct *work)
 	struct msm_drm_private *priv = vbl_work->priv;
 	struct msm_kms *kms = priv->kms;
 
+	MSM_FUNC_ENTER("crtc_id=%d enable=%d", vbl_work->crtc_id, vbl_work->enable);
 	if (vbl_work->enable)
 		kms->funcs->enable_vblank(kms, priv->crtcs[vbl_work->crtc_id]);
 	else
 		kms->funcs->disable_vblank(kms,	priv->crtcs[vbl_work->crtc_id]);
 
 	kfree(vbl_work);
+	MSM_FUNC_EXIT("");
 }
 
 static int vblank_ctrl_queue_work(struct msm_drm_private *priv,
 					int crtc_id, bool enable)
 {
 	struct msm_vblank_work *vbl_work;
+	int ret = 0;
 
+	MSM_FUNC_ENTER("crtc_id=%d enable=%d", crtc_id, enable);
 	vbl_work = kzalloc(sizeof(*vbl_work), GFP_ATOMIC);
-	if (!vbl_work)
-		return -ENOMEM;
+	if (!vbl_work) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	INIT_WORK(&vbl_work->work, vblank_ctrl_worker);
 
@@ -304,7 +365,9 @@ static int vblank_ctrl_queue_work(struct msm_drm_private *priv,
 
 	queue_work(priv->wq, &vbl_work->work);
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_drm_uninit(struct device *dev)
@@ -391,6 +454,7 @@ static int msm_drm_uninit(struct device *dev)
 	destroy_workqueue(priv->wq);
 	kfree(priv);
 
+	MSM_FUNC_EXIT("ret=0");
 	return 0;
 }
 
@@ -410,9 +474,13 @@ static int get_mdp_ver(struct platform_device *pdev)
 bool msm_use_mmu(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
+	bool use_mmu;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	/* a2xx comes with its own MMU */
-	return priv->is_a2xx || iommu_present(&platform_bus_type);
+	use_mmu = priv->is_a2xx || iommu_present(&platform_bus_type);
+	MSM_FUNC_EXIT("use_mmu=%d", use_mmu);
+	return use_mmu;
 }
 
 static int msm_init_vram(struct drm_device *dev)
@@ -421,6 +489,9 @@ static int msm_init_vram(struct drm_device *dev)
 	struct device_node *node;
 	unsigned long size = 0;
 	int ret = 0;
+	int status = 0;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
 
 	/* In the device-tree world, we could have a 'memory-region'
 	 * phandle, which gives us a link to our "vram".  Allocating
@@ -445,7 +516,7 @@ static int msm_init_vram(struct drm_device *dev)
 		ret = of_address_to_resource(node, 0, &r);
 		of_node_put(node);
 		if (ret)
-			return ret;
+			goto out;
 		size = r.end - r.start;
 		DRM_INFO("using VRAM carveout: %lx@%pa\n", size, &r.start);
 
@@ -478,7 +549,8 @@ static int msm_init_vram(struct drm_device *dev)
 		if (!p) {
 			DRM_DEV_ERROR(dev->dev, "failed to allocate VRAM\n");
 			priv->vram.paddr = 0;
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto out;
 		}
 
 		DRM_DEV_INFO(dev->dev, "VRAM: %08x->%08x\n",
@@ -486,7 +558,10 @@ static int msm_init_vram(struct drm_device *dev)
 				(uint32_t)(priv->vram.paddr + size));
 	}
 
-	return ret;
+out:
+	status = ret;
+	MSM_FUNC_EXIT("ret=%d", status);
+	return status;
 }
 
 static int msm_drm_init(struct device *dev, const struct drm_driver *drv)
@@ -521,7 +596,6 @@ static int msm_drm_init(struct device *dev, const struct drm_driver *drv)
 	ddev->dev_private = priv;
 	priv->dev = ddev;
 
-	DRM_INFO("%s - %d\n", __func__, __LINE__);
 	MSM_DRV_DBG("Initializing MDSS for MDP version: %d", get_mdp_ver(pdev));
 	switch (get_mdp_ver(pdev)) {
 	case KMS_MDP5:
@@ -533,7 +607,6 @@ static int msm_drm_init(struct device *dev, const struct drm_driver *drv)
 		ret = dpu_mdss_init(ddev);
 		break;
 	default:
-		DRM_INFO("%s - %d\n", __func__, __LINE__);
 		MSM_DRV_DBG("No MDSS initialization needed for MDP version: %d", get_mdp_ver(pdev));
 		ret = 0;
 		break;
@@ -750,6 +823,7 @@ static void load_gpu(struct drm_device *dev)
 	}
 
 	mutex_unlock(&init_lock);
+	MSM_FUNC_EXIT("");
 }
 
 static int context_init(struct drm_device *dev, struct drm_file *file)
@@ -757,13 +831,15 @@ static int context_init(struct drm_device *dev, struct drm_file *file)
 	static atomic_t ident = ATOMIC_INIT(0);
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_file_private *ctx;
+	int ret = 0;
 
 	MSM_FUNC_ENTER("Starting context initialization");
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx) {
 		MSM_ERROR_DBG("Failed to allocate file private context");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto out;
 	}
 	MSM_DRV_DBG("Allocated file private context successfully");
 
@@ -781,11 +857,14 @@ static int context_init(struct drm_device *dev, struct drm_file *file)
 	ctx->seqno = atomic_inc_return(&ident);
 	MSM_DRV_DBG("Context initialized with seqno: %d", ctx->seqno);
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_open(struct drm_device *dev, struct drm_file *file)
 {
+	int ret;
 	MSM_FUNC_ENTER("Opening MSM DRM device");
 	
 	/* For now, load gpu on open.. to avoid the requirement of having
@@ -795,13 +874,17 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 	load_gpu(dev);
 
 	MSM_DRV_DBG("Initializing context");
-	return context_init(dev, file);
+	ret = context_init(dev, file);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static void context_close(struct msm_file_private *ctx)
 {
+	MSM_FUNC_ENTER("ctx=%p", ctx);
 	msm_submitqueue_close(ctx);
 	msm_file_private_put(ctx);
+	MSM_FUNC_EXIT("");
 }
 
 static void msm_postclose(struct drm_device *dev, struct drm_file *file)
@@ -820,6 +903,7 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 
 	MSM_DRV_DBG("Closing context");
 	context_close(ctx);
+	MSM_FUNC_EXIT("");
 }
 
 int msm_crtc_enable_vblank(struct drm_crtc *crtc)
@@ -828,16 +912,22 @@ int msm_crtc_enable_vblank(struct drm_crtc *crtc)
 	unsigned int pipe = crtc->index;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
-	
+	int ret;
+
 	MSM_FUNC_ENTER("Enabling vblank for pipe %u", pipe);
-	
+
 	if (!kms) {
 		MSM_ERROR_DBG("KMS not available");
-		return -ENXIO;
+		ret = -ENXIO;
+		goto out;
 	}
 	drm_dbg_vbl(dev, "crtc=%u", pipe);
 	MSM_DRV_DBG("Enabling vblank for pipe %u", pipe);
-	return vblank_ctrl_queue_work(priv, pipe, true);
+	ret = vblank_ctrl_queue_work(priv, pipe, true);
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 void msm_crtc_disable_vblank(struct drm_crtc *crtc)
@@ -846,16 +936,21 @@ void msm_crtc_disable_vblank(struct drm_crtc *crtc)
 	unsigned int pipe = crtc->index;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
-	
+	int ret = 0;
+
 	MSM_FUNC_ENTER("Disabling vblank for pipe %u", pipe);
-	
+
 	if (!kms) {
 		MSM_DRV_DBG("KMS not available");
-		return;
+		ret = -ENXIO;
+		goto out;
 	}
 	drm_dbg_vbl(dev, "crtc=%u", pipe);
 	MSM_DRV_DBG("Disabling vblank for pipe %u", pipe);
 	vblank_ctrl_queue_work(priv, pipe, false);
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
 }
 
 /*
@@ -868,48 +963,44 @@ static int msm_ioctl_get_param(struct drm_device *dev, void *data,
 	struct msm_drm_private *priv = dev->dev_private;
 	struct drm_msm_param *args = data;
 	struct msm_gpu *gpu;
+	int ret;
 
-	MSM_FUNC_ENTER("Getting GPU parameter");
-	MSM_PARAM_DBG("pipe", args->pipe, "0x%x");
-	MSM_PARAM_DBG("param", args->param, "0x%x");
+	MSM_FUNC_ENTER("pipe=%u", args->pipe);
 
-	/* for now, we just have 3d pipe.. eventually this would need to
-	 * be more clever to dispatch to appropriate gpu module:
-	 */
 	if (args->pipe != MSM_PIPE_3D0) {
-		MSM_ERROR_DBG("Invalid pipe: 0x%x", args->pipe);
+		MSM_FUNC_EXIT("ret=%d", -EINVAL);
 		return -EINVAL;
 	}
 
 	gpu = priv->gpu;
 
 	if (!gpu) {
-		MSM_ERROR_DBG("GPU not available");
+		MSM_FUNC_EXIT("ret=%d", -ENXIO);
 		return -ENXIO;
 	}
 
-	MSM_DRV_DBG("Calling GPU get_param");
-	return gpu->funcs->get_param(gpu, args->param, &args->value);
+	ret = gpu->funcs->get_param(gpu, args->param, &args->value);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_ioctl_gem_new(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
 	struct drm_msm_gem_new *args = data;
+	int ret;
 
-	MSM_FUNC_ENTER("Creating new GEM object");
-	MSM_PARAM_DBG("size", args->size, "%zu");
-	MSM_PARAM_DBG("flags", args->flags, "0x%x");
+	MSM_FUNC_ENTER("size=%llu", args->size);
 
 	if (args->flags & ~MSM_BO_FLAGS) {
-		DRM_ERROR("invalid flags: %08x\n", args->flags);
-		MSM_ERROR_DBG("Invalid GEM flags: 0x%x", args->flags);
+		MSM_FUNC_EXIT("ret=%d", -EINVAL);
 		return -EINVAL;
 	}
 
-	MSM_DRV_DBG("Creating new GEM object");
-	return msm_gem_new_handle(dev, file, args->size,
+	ret = msm_gem_new_handle(dev, file, args->size,
 			args->flags, &args->handle, NULL);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static inline ktime_t to_ktime(struct drm_msm_timespec timeout)
@@ -925,19 +1016,25 @@ static int msm_ioctl_gem_cpu_prep(struct drm_device *dev, void *data,
 	ktime_t timeout = to_ktime(args->timeout);
 	int ret;
 
+	MSM_FUNC_ENTER("handle=%u op=0x%x", args->handle, args->op);
+
 	if (args->op & ~MSM_PREP_FLAGS) {
 		DRM_ERROR("invalid op: %08x\n", args->op);
+		MSM_FUNC_EXIT("ret=%d", -EINVAL);
 		return -EINVAL;
 	}
 
 	obj = drm_gem_object_lookup(file, args->handle);
-	if (!obj)
+	if (!obj) {
+		MSM_FUNC_EXIT("ret=%d", -ENOENT);
 		return -ENOENT;
+	}
 
 	ret = msm_gem_cpu_prep(obj, args->op, &timeout);
 
 	drm_gem_object_put(obj);
 
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -948,14 +1045,19 @@ static int msm_ioctl_gem_cpu_fini(struct drm_device *dev, void *data,
 	struct drm_gem_object *obj;
 	int ret;
 
+	MSM_FUNC_ENTER("handle=%u", args->handle);
+
 	obj = drm_gem_object_lookup(file, args->handle);
-	if (!obj)
+	if (!obj) {
+		MSM_FUNC_EXIT("ret=%d", -ENOENT);
 		return -ENOENT;
+	}
 
 	ret = msm_gem_cpu_fini(obj);
 
 	drm_gem_object_put(obj);
 
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -965,15 +1067,22 @@ static int msm_ioctl_gem_info_iova(struct drm_device *dev,
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_file_private *ctx = file->driver_priv;
+	int ret;
 
-	if (!priv->gpu)
+	MSM_FUNC_ENTER("obj=%p", obj);
+
+	if (!priv->gpu) {
+		MSM_FUNC_EXIT("ret=%d", -EINVAL);
 		return -EINVAL;
+	}
 
 	/*
 	 * Don't pin the memory here - just get an address so that userspace can
 	 * be productive
 	 */
-	return msm_gem_get_iova(obj, ctx->aspace, iova);
+	ret = msm_gem_get_iova(obj, ctx->aspace, iova);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
@@ -984,26 +1093,35 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 	struct msm_gem_object *msm_obj;
 	int i, ret = 0;
 
-	if (args->pad)
+	MSM_FUNC_ENTER("handle=%u info=0x%x", args->handle, args->info);
+
+	if (args->pad) {
+		MSM_FUNC_EXIT("ret=%d", -EINVAL);
 		return -EINVAL;
+	}
 
 	switch (args->info) {
 	case MSM_INFO_GET_OFFSET:
 	case MSM_INFO_GET_IOVA:
 		/* value returned as immediate, not pointer, so len==0: */
-		if (args->len)
+		if (args->len) {
+			MSM_FUNC_EXIT("ret=%d", -EINVAL);
 			return -EINVAL;
+		}
 		break;
 	case MSM_INFO_SET_NAME:
 	case MSM_INFO_GET_NAME:
 		break;
 	default:
+		MSM_FUNC_EXIT("ret=%d", -EINVAL);
 		return -EINVAL;
 	}
 
 	obj = drm_gem_object_lookup(file, args->handle);
-	if (!obj)
+	if (!obj) {
+		MSM_FUNC_EXIT("ret=%d", -ENOENT);
 		return -ENOENT;
+	}
 
 	msm_obj = to_msm_bo(obj);
 
@@ -1050,19 +1168,24 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 
 	drm_gem_object_put(obj);
 
+	MSM_FUNC_EXIT("ret=%d", ret);
+
 	return ret;
 }
 
 static int wait_fence(struct msm_gpu_submitqueue *queue, uint32_t fence_id,
 		      ktime_t timeout)
 {
-	struct dma_fence *fence;
-	int ret;
+	struct dma_fence *fence = NULL;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("queue=%p fence_id=%u", queue, fence_id);
 
 	if (fence_id > queue->last_fence) {
 		DRM_ERROR_RATELIMITED("waiting on invalid fence: %u (of %u)\n",
 				      fence_id, queue->last_fence);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	/*
@@ -1075,14 +1198,14 @@ static int wait_fence(struct msm_gpu_submitqueue *queue, uint32_t fence_id,
 	 */
 	ret = mutex_lock_interruptible(&queue->lock);
 	if (ret)
-		return ret;
+		goto out;
 	fence = idr_find(&queue->fence_idr, fence_id);
 	if (fence)
 		fence = dma_fence_get_rcu(fence);
 	mutex_unlock(&queue->lock);
 
 	if (!fence)
-		return 0;
+		goto out;
 
 	ret = dma_fence_wait_timeout(fence, true, timeout_to_jiffies(&timeout));
 	if (ret == 0) {
@@ -1093,6 +1216,8 @@ static int wait_fence(struct msm_gpu_submitqueue *queue, uint32_t fence_id,
 
 	dma_fence_put(fence);
 
+	out:
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -1104,22 +1229,30 @@ static int msm_ioctl_wait_fence(struct drm_device *dev, void *data,
 	struct msm_gpu_submitqueue *queue;
 	int ret;
 
+	MSM_FUNC_ENTER("queueid=%u", args->queueid);
+
 	if (args->pad) {
 		DRM_ERROR("invalid pad: %08x\n", args->pad);
+		MSM_FUNC_EXIT("ret=%d", -EINVAL);
 		return -EINVAL;
 	}
 
 	if (!priv->gpu)
-		return 0;
+		ret = 0;
+		MSM_FUNC_EXIT("ret=%d", ret);
+		return ret;
 
 	queue = msm_submitqueue_get(file->driver_priv, args->queueid);
-	if (!queue)
+	if (!queue) {
+		MSM_FUNC_EXIT("ret=%d", -ENOENT);
 		return -ENOENT;
+	}
 
 	ret = wait_fence(queue, args->fence, to_ktime(args->timeout));
 
 	msm_submitqueue_put(queue);
 
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -1130,16 +1263,20 @@ static int msm_ioctl_gem_madvise(struct drm_device *dev, void *data,
 	struct drm_gem_object *obj;
 	int ret;
 
+	MSM_FUNC_ENTER("handle=%u madv=%u", args->handle, args->madv);
+
 	switch (args->madv) {
 	case MSM_MADV_DONTNEED:
 	case MSM_MADV_WILLNEED:
 		break;
 	default:
+		MSM_FUNC_EXIT("ret=%d", -EINVAL);
 		return -EINVAL;
 	}
 
 	obj = drm_gem_object_lookup(file, args->handle);
 	if (!obj) {
+		MSM_FUNC_EXIT("ret=%d", -ENOENT);
 		return -ENOENT;
 	}
 
@@ -1151,6 +1288,7 @@ static int msm_ioctl_gem_madvise(struct drm_device *dev, void *data,
 
 	drm_gem_object_put(obj);
 
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -1159,26 +1297,44 @@ static int msm_ioctl_submitqueue_new(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
 	struct drm_msm_submitqueue *args = data;
+	int ret;
 
-	if (args->flags & ~MSM_SUBMITQUEUE_FLAGS)
-		return -EINVAL;
+	MSM_FUNC_ENTER("prio=%u flags=0x%x", args->prio, args->flags);
 
-	return msm_submitqueue_create(dev, file->driver_priv, args->prio,
+	if (args->flags & ~MSM_SUBMITQUEUE_FLAGS) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = msm_submitqueue_create(dev, file->driver_priv, args->prio,
 		args->flags, &args->id);
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_ioctl_submitqueue_query(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
-	return msm_submitqueue_query(dev, file->driver_priv, data);
+	int ret;
+
+	MSM_FUNC_ENTER("");
+	ret = msm_submitqueue_query(dev, file->driver_priv, data);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_ioctl_submitqueue_close(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
 	u32 id = *(u32 *) data;
+	int ret;
 
-	return msm_submitqueue_remove(file->driver_priv, id);
+	MSM_FUNC_ENTER("id=%u", id);
+	ret = msm_submitqueue_remove(file->driver_priv, id);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static const struct drm_ioctl_desc msm_ioctls[] = {
@@ -1231,13 +1387,17 @@ static int __maybe_unused msm_runtime_suspend(struct device *dev)
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct msm_drm_private *priv = ddev->dev_private;
 	struct msm_mdss *mdss = priv->mdss;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
 
 	DBG("");
 
 	if (mdss && mdss->funcs)
-		return mdss->funcs->disable(mdss);
+		ret = mdss->funcs->disable(mdss);
 
-	return 0;
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int __maybe_unused msm_runtime_resume(struct device *dev)
@@ -1245,41 +1405,67 @@ static int __maybe_unused msm_runtime_resume(struct device *dev)
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct msm_drm_private *priv = ddev->dev_private;
 	struct msm_mdss *mdss = priv->mdss;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
 
 	DBG("");
 
 	if (mdss && mdss->funcs)
-		return mdss->funcs->enable(mdss);
+		ret = mdss->funcs->enable(mdss);
 
-	return 0;
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int __maybe_unused msm_pm_suspend(struct device *dev)
 {
+	int ret = 0;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
 
 	if (pm_runtime_suspended(dev))
-		return 0;
+		goto out;
 
-	return msm_runtime_suspend(dev);
+	ret = msm_runtime_suspend(dev);
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int __maybe_unused msm_pm_resume(struct device *dev)
 {
-	if (pm_runtime_suspended(dev))
-		return 0;
+	int ret = 0;
 
-	return msm_runtime_resume(dev);
+	MSM_FUNC_ENTER("dev=%p", dev);
+
+	if (pm_runtime_suspended(dev))
+		goto out;
+
+	ret = msm_runtime_resume(dev);
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int __maybe_unused msm_pm_prepare(struct device *dev)
 {
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct msm_drm_private *priv = ddev ? ddev->dev_private : NULL;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
 
 	if (!priv || !priv->kms)
-		return 0;
+		goto out;
 
-	return drm_mode_config_helper_suspend(ddev);
+	ret = drm_mode_config_helper_suspend(ddev);
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static void __maybe_unused msm_pm_complete(struct device *dev)
@@ -1287,10 +1473,15 @@ static void __maybe_unused msm_pm_complete(struct device *dev)
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct msm_drm_private *priv = ddev ? ddev->dev_private : NULL;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
+
 	if (!priv || !priv->kms)
-		return;
+		goto out;
 
 	drm_mode_config_helper_resume(ddev);
+
+out:
+	MSM_FUNC_EXIT("");
 }
 
 static const struct dev_pm_ops msm_pm_ops = {
@@ -1325,6 +1516,9 @@ static int add_components_mdp(struct device *mdp_dev,
 	struct device_node *np = mdp_dev->of_node;
 	struct device_node *ep_node;
 	struct device *master_dev;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("mdp_dev=%p", mdp_dev);
 
 	/*
 	 * on MDP4 based platforms, the MDP platform device is the component
@@ -1342,13 +1536,12 @@ static int add_components_mdp(struct device *mdp_dev,
 	for_each_endpoint_of_node(np, ep_node) {
 		struct device_node *intf;
 		struct of_endpoint ep;
-		int ret;
 
 		ret = of_graph_parse_endpoint(ep_node, &ep);
 		if (ret) {
 			DRM_DEV_ERROR(mdp_dev, "unable to parse port endpoint\n");
 			of_node_put(ep_node);
-			return ret;
+			goto out;
 		}
 
 		/*
@@ -1375,7 +1568,11 @@ static int add_components_mdp(struct device *mdp_dev,
 		of_node_put(intf);
 	}
 
-	return 0;
+	ret = 0;
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int compare_name_mdp(struct device *dev, void *data)
@@ -1390,7 +1587,8 @@ static int add_display_components(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	int ret;
 
-	DRM_INFO("%s - %d\n", __func__, __LINE__);
+	MSM_FUNC_ENTER("pdev=%p", pdev);
+
 	/*
 	 * MDP5/DPU based devices don't have a flat hierarchy. There is a top
 	 * level parent: MDSS, and children: MDP5/DPU, DSI, HDMI, eDP etc.
@@ -1404,14 +1602,15 @@ static int add_display_components(struct platform_device *pdev,
 		ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 		if (ret) {
 			DRM_DEV_ERROR(dev, "failed to populate children devices\n");
-			return ret;
+			goto out;
 		}
 
 		mdp_dev = device_find_child(dev, NULL, compare_name_mdp);
 		if (!mdp_dev) {
 			DRM_DEV_ERROR(dev, "failed to find MDSS MDP node\n");
 			of_platform_depopulate(dev);
-			return -ENODEV;
+			ret = -ENODEV;
+			goto out;
 		}
 
 		put_device(mdp_dev);
@@ -1430,6 +1629,8 @@ static int add_display_components(struct platform_device *pdev,
 	if (ret)
 		of_platform_depopulate(dev);
 
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -1450,28 +1651,40 @@ static int add_gpu_components(struct device *dev,
 			      struct component_match **matchptr)
 {
 	struct device_node *np;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
 
 	np = of_find_matching_node(NULL, msm_gpu_match);
 	if (!np)
-		return 0;
+		goto out;
 
 	if (of_device_is_available(np))
 		drm_of_component_match_add(dev, matchptr, compare_of, np);
 
 	of_node_put(np);
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_drm_bind(struct device *dev)
 {
+	int ret;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
 	DRM_INFO("%s - %d\n", __func__, __LINE__);
-	return msm_drm_init(dev, &msm_driver);
+	ret = msm_drm_init(dev, &msm_driver);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static void msm_drm_unbind(struct device *dev)
 {
+	MSM_FUNC_ENTER("dev=%p", dev);
 	msm_drm_uninit(dev);
+	MSM_FUNC_EXIT("");
 }
 
 static const struct component_master_ops msm_drm_ops = {
@@ -1489,7 +1702,6 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	int ret;
 
 	MSM_FUNC_ENTER("Starting platform device probe");
-	DRM_INFO("%s - %d\n", __func__, __LINE__);
 
 	MSM_DRV_DBG("MDP version: %d", get_mdp_ver(pdev));
 	if (get_mdp_ver(pdev)) {
@@ -1497,15 +1709,13 @@ static int msm_pdev_probe(struct platform_device *pdev)
 		ret = add_display_components(pdev, &match);
 		if (ret) {
 			MSM_ERROR_DBG("Failed to add display components, ret=%d", ret);
-			return ret;
+			goto out;
 		}
 		MSM_DRV_DBG("Display components added successfully");
 	}
 
-	DRM_INFO("%s - %d\n", __func__, __LINE__);
 	//ret = add_gpu_components(&pdev->dev, &match);
 	//if (ret) {
-	//	DRM_INFO("%s - %d\n", __func__, __LINE__);
 	//	goto fail;
 	//}
 
@@ -1526,13 +1736,15 @@ static int msm_pdev_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	MSM_FUNC_EXIT("Platform device probe completed successfully");
-	return 0;
+	ret = 0;
+	goto out;
 
 fail:
-	DRM_INFO("%s - %d\n", __func__, __LINE__);
 	MSM_DRV_DBG("Probe failed, cleaning up");
 	of_platform_depopulate(&pdev->dev);
+
+out:
+	MSM_FUNC_EXIT("Platform device probe completed%s", ret ? " with errors" : " successfully");
 	return ret;
 }
 
@@ -1559,11 +1771,14 @@ static void msm_pdev_shutdown(struct platform_device *pdev)
 
 	if (!priv || !priv->kms) {
 		MSM_DRV_DBG("No private data or KMS available for shutdown");
-		return;
+		goto out;
 	}
 
 	MSM_DRV_DBG("Shutting down DRM device");
 	drm_atomic_helper_shutdown(drm);
+
+out:
+	MSM_FUNC_EXIT("");
 }
 
 static const struct of_device_id dt_match[] = {

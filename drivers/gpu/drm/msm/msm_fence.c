@@ -16,6 +16,7 @@ msm_fence_context_alloc(struct drm_device *dev, volatile uint32_t *fenceptr,
 {
 	struct msm_fence_context *fctx;
 
+	MSM_FUNC_ENTER("dev=%p name=%s", dev, name);
 	fctx = kzalloc(sizeof(*fctx), GFP_KERNEL);
 	if (!fctx)
 		return ERR_PTR(-ENOMEM);
@@ -26,12 +27,15 @@ msm_fence_context_alloc(struct drm_device *dev, volatile uint32_t *fenceptr,
 	fctx->fenceptr = fenceptr;
 	spin_lock_init(&fctx->spinlock);
 
+	MSM_FUNC_EXIT("fctx=%p", fctx);
 	return fctx;
 }
 
 void msm_fence_context_free(struct msm_fence_context *fctx)
 {
+	MSM_FUNC_ENTER("fctx=%p", fctx);
 	kfree(fctx);
+	MSM_FUNC_EXIT("");
 }
 
 static inline bool fence_completed(struct msm_fence_context *fctx, uint32_t fence)
@@ -47,9 +51,11 @@ static inline bool fence_completed(struct msm_fence_context *fctx, uint32_t fenc
 /* called from workqueue */
 void msm_update_fence(struct msm_fence_context *fctx, uint32_t fence)
 {
+	MSM_FUNC_ENTER("fctx=%p fence=%u", fctx, fence);
 	spin_lock(&fctx->spinlock);
 	fctx->completed_fence = max(fence, fctx->completed_fence);
 	spin_unlock(&fctx->spinlock);
+	MSM_FUNC_EXIT("completed=%u", fctx->completed_fence);
 }
 
 struct msm_fence {
@@ -76,7 +82,10 @@ static const char *msm_fence_get_timeline_name(struct dma_fence *fence)
 static bool msm_fence_signaled(struct dma_fence *fence)
 {
 	struct msm_fence *f = to_msm_fence(fence);
-	return fence_completed(f->fctx, f->base.seqno);
+	bool signaled = fence_completed(f->fctx, f->base.seqno);
+	MSM_FUNC_ENTER("fence=%p seqno=%u", fence, f->base.seqno);
+	MSM_FUNC_EXIT("signaled=%d", signaled);
+	return signaled;
 }
 
 static const struct dma_fence_ops msm_fence_ops = {
@@ -90,6 +99,7 @@ msm_fence_alloc(struct msm_fence_context *fctx)
 {
 	struct msm_fence *f;
 
+	MSM_FUNC_ENTER("fctx=%p", fctx);
 	f = kzalloc(sizeof(*f), GFP_KERNEL);
 	if (!f)
 		return ERR_PTR(-ENOMEM);
@@ -99,5 +109,6 @@ msm_fence_alloc(struct msm_fence_context *fctx)
 	dma_fence_init(&f->base, &msm_fence_ops, &fctx->spinlock,
 		       fctx->context, ++fctx->last_fence);
 
+	MSM_FUNC_EXIT("fence=%p seqno=%u", &f->base, f->base.seqno);
 	return &f->base;
 }

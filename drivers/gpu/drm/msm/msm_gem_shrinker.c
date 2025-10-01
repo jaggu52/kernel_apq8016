@@ -18,7 +18,10 @@ module_param(enable_eviction, bool, 0600);
 
 static bool can_swap(void)
 {
-	return enable_eviction && get_nr_swap_pages() > 0;
+	bool swap = enable_eviction && get_nr_swap_pages() > 0;
+	MSM_FUNC_ENTER("enable_eviction=%d", enable_eviction);
+	MSM_FUNC_EXIT("swap=%d", swap);
+	return swap;
 }
 
 static unsigned long
@@ -28,15 +31,21 @@ msm_gem_shrinker_count(struct shrinker *shrinker, struct shrink_control *sc)
 		container_of(shrinker, struct msm_drm_private, shrinker);
 	unsigned count = priv->shrinkable_count;
 
+	MSM_FUNC_ENTER("shrinkable=%u evictable=%u", priv->shrinkable_count,
+		priv->evictable_count);
 	if (can_swap())
 		count += priv->evictable_count;
 
+	MSM_FUNC_EXIT("count=%u", count);
 	return count;
 }
 
 static bool
 purge(struct msm_gem_object *msm_obj)
 {
+	bool purged;
+
+	MSM_FUNC_ENTER("obj=%p", msm_obj);
 	if (!is_purgeable(msm_obj))
 		return false;
 
@@ -45,19 +54,25 @@ purge(struct msm_gem_object *msm_obj)
 	 * the purged list
 	 */
 	msm_gem_purge(&msm_obj->base);
+	purged = true;
 
-	return true;
+	MSM_FUNC_EXIT("purged=%d", purged);
+	return purged;
 }
 
 static bool
 evict(struct msm_gem_object *msm_obj)
 {
+	bool evicted;
+
+	MSM_FUNC_ENTER("obj=%p", msm_obj);
 	if (is_unevictable(msm_obj))
 		return false;
 
 	msm_gem_evict(&msm_obj->base);
-
-	return true;
+	evicted = true;
+	MSM_FUNC_EXIT("evicted=%d", evicted);
+	return evicted;
 }
 
 static unsigned long
@@ -67,6 +82,7 @@ scan(struct msm_drm_private *priv, unsigned nr_to_scan, struct list_head *list,
 	unsigned freed = 0;
 	struct list_head still_in_list;
 
+	MSM_FUNC_ENTER("nr_to_scan=%u", nr_to_scan);
 	INIT_LIST_HEAD(&still_in_list);
 
 	mutex_lock(&priv->mm_lock);
@@ -117,6 +133,7 @@ tail:
 	list_splice_tail(&still_in_list, list);
 	mutex_unlock(&priv->mm_lock);
 
+	MSM_FUNC_EXIT("freed=%u", freed);
 	return freed;
 }
 
@@ -127,6 +144,7 @@ msm_gem_shrinker_scan(struct shrinker *shrinker, struct shrink_control *sc)
 		container_of(shrinker, struct msm_drm_private, shrinker);
 	unsigned long freed;
 
+	MSM_FUNC_ENTER("nr_to_scan=%lu", sc->nr_to_scan);
 	freed = scan(priv, sc->nr_to_scan, &priv->inactive_dontneed, purge);
 
 	if (freed > 0)
@@ -142,7 +160,9 @@ msm_gem_shrinker_scan(struct shrinker *shrinker, struct shrink_control *sc)
 		freed += evicted;
 	}
 
-	return (freed > 0) ? freed : SHRINK_STOP;
+	freed = (freed > 0) ? freed : SHRINK_STOP;
+	MSM_FUNC_EXIT("freed=%lu", freed);
+	return freed;
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -176,7 +196,6 @@ vmap_shrink(struct msm_gem_object *msm_obj)
 		return false;
 
 	msm_gem_vunmap(&msm_obj->base);
-
 	return true;
 }
 

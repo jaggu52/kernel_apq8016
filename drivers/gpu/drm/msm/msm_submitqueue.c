@@ -13,6 +13,8 @@ void __msm_file_private_destroy(struct kref *kref)
 		struct msm_file_private, ref);
 	int i;
 
+	MSM_FUNC_ENTER("ctx=%p", ctx);
+
 	for (i = 0; i < ARRAY_SIZE(ctx->entities); i++) {
 		if (!ctx->entities[i])
 			continue;
@@ -23,6 +25,7 @@ void __msm_file_private_destroy(struct kref *kref)
 
 	msm_gem_address_space_put(ctx->aspace);
 	kfree(ctx);
+	MSM_FUNC_EXIT("");
 }
 
 void msm_submitqueue_destroy(struct kref *kref)
@@ -30,11 +33,13 @@ void msm_submitqueue_destroy(struct kref *kref)
 	struct msm_gpu_submitqueue *queue = container_of(kref,
 		struct msm_gpu_submitqueue, ref);
 
+	MSM_FUNC_ENTER("queue=%p", queue);
 	idr_destroy(&queue->fence_idr);
 
 	msm_file_private_put(queue->ctx);
 
 	kfree(queue);
+	MSM_FUNC_EXIT("");
 }
 
 struct msm_gpu_submitqueue *msm_submitqueue_get(struct msm_file_private *ctx,
@@ -42,6 +47,7 @@ struct msm_gpu_submitqueue *msm_submitqueue_get(struct msm_file_private *ctx,
 {
 	struct msm_gpu_submitqueue *entry;
 
+	MSM_FUNC_ENTER("ctx=%p id=%u", ctx, id);
 	if (!ctx)
 		return NULL;
 
@@ -57,6 +63,7 @@ struct msm_gpu_submitqueue *msm_submitqueue_get(struct msm_file_private *ctx,
 	}
 
 	read_unlock(&ctx->queuelock);
+	MSM_FUNC_EXIT("queue=NULL");
 	return NULL;
 }
 
@@ -64,6 +71,7 @@ void msm_submitqueue_close(struct msm_file_private *ctx)
 {
 	struct msm_gpu_submitqueue *entry, *tmp;
 
+	MSM_FUNC_ENTER("ctx=%p", ctx);
 	if (!ctx)
 		return;
 
@@ -75,6 +83,7 @@ void msm_submitqueue_close(struct msm_file_private *ctx)
 		list_del(&entry->node);
 		msm_submitqueue_put(entry);
 	}
+	MSM_FUNC_EXIT("");
 }
 
 static struct drm_sched_entity *
@@ -83,6 +92,8 @@ get_sched_entity(struct msm_file_private *ctx, struct msm_ringbuffer *ring,
 {
 	static DEFINE_MUTEX(entity_lock);
 	unsigned idx = (ring_nr * NR_SCHED_PRIORITIES) + sched_prio;
+
+	MSM_FUNC_ENTER("");
 
 	/* We should have already validated that the requested priority is
 	 * valid by the time we get here.
@@ -103,6 +114,7 @@ get_sched_entity(struct msm_file_private *ctx, struct msm_ringbuffer *ring,
 		if (ret) {
 			mutex_unlock(&entity_lock);
 			kfree(entity);
+			MSM_FUNC_EXIT("");
 			return ERR_PTR(ret);
 		}
 
@@ -111,6 +123,7 @@ get_sched_entity(struct msm_file_private *ctx, struct msm_ringbuffer *ring,
 
 	mutex_unlock(&entity_lock);
 
+	MSM_FUNC_EXIT("");
 	return ctx->entities[idx];
 }
 
@@ -122,6 +135,8 @@ int msm_submitqueue_create(struct drm_device *drm, struct msm_file_private *ctx,
 	enum drm_sched_priority sched_prio;
 	unsigned ring_nr;
 	int ret;
+
+	MSM_FUNC_ENTER("prio=%u flags=0x%x", prio, flags);
 
 	if (!ctx)
 		return -ENODEV;
@@ -165,6 +180,7 @@ int msm_submitqueue_create(struct drm_device *drm, struct msm_file_private *ctx,
 
 	write_unlock(&ctx->queuelock);
 
+	MSM_FUNC_EXIT("queue_id=%u", queue->id);
 	return 0;
 }
 
@@ -198,6 +214,8 @@ static int msm_submitqueue_query_faults(struct msm_gpu_submitqueue *queue,
 	size_t size = min_t(size_t, args->len, sizeof(queue->faults));
 	int ret;
 
+	MSM_FUNC_ENTER("queue=%p len=%u", queue, args->len);
+
 	/* If a zero length was passed in, return the data size we expect */
 	if (!args->len) {
 		args->len = sizeof(queue->faults);
@@ -209,7 +227,9 @@ static int msm_submitqueue_query_faults(struct msm_gpu_submitqueue *queue,
 
 	ret = copy_to_user(u64_to_user_ptr(args->data), &queue->faults, size);
 
-	return ret ? -EFAULT : 0;
+	ret = ret ? -EFAULT : 0;
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 int msm_submitqueue_query(struct drm_device *drm, struct msm_file_private *ctx,
@@ -217,6 +237,7 @@ int msm_submitqueue_query(struct drm_device *drm, struct msm_file_private *ctx,
 {
 	struct msm_gpu_submitqueue *queue;
 	int ret = -EINVAL;
+	MSM_FUNC_ENTER("param=%u", args->param);
 
 	if (args->pad)
 		return -EINVAL;
@@ -230,6 +251,7 @@ int msm_submitqueue_query(struct drm_device *drm, struct msm_file_private *ctx,
 
 	msm_submitqueue_put(queue);
 
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -237,6 +259,7 @@ int msm_submitqueue_remove(struct msm_file_private *ctx, u32 id)
 {
 	struct msm_gpu_submitqueue *entry;
 
+	MSM_FUNC_ENTER("ctx=%p id=%u", ctx, id);
 	if (!ctx)
 		return 0;
 
@@ -260,6 +283,6 @@ int msm_submitqueue_remove(struct msm_file_private *ctx, u32 id)
 	}
 
 	write_unlock(&ctx->queuelock);
+	MSM_FUNC_EXIT("ret=%d", -ENOENT);
 	return -ENOENT;
 }
-

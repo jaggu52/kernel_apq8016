@@ -289,6 +289,8 @@ const struct msm_dsi_cfg_handler *msm_dsi_cfg_get(u32 major, u32 minor)
 	const struct msm_dsi_cfg_handler *cfg_hnd = NULL;
 	int i;
 
+	MSM_FUNC_ENTER("[DSI] major=0x%08x minor=0x%08x", major, minor);
+
 	for (i = ARRAY_SIZE(dsi_cfg_handlers) - 1; i >= 0; i--) {
 		if ((dsi_cfg_handlers[i].major == major) &&
 			(dsi_cfg_handlers[i].minor == minor)) {
@@ -297,6 +299,7 @@ const struct msm_dsi_cfg_handler *msm_dsi_cfg_get(u32 major, u32 minor)
 		}
 	}
 
+	MSM_FUNC_EXIT("[DSI] handler=%p", cfg_hnd);
+
 	return cfg_hnd;
 }
-

@@ -15,17 +15,23 @@ static struct dma_fence *msm_job_dependency(struct drm_sched_job *job,
 		struct drm_sched_entity *s_entity)
 {
 	struct msm_gem_submit *submit = to_msm_submit(job);
+	struct dma_fence *dep = NULL;
 
+	MSM_FUNC_ENTER("submit=%p", submit);
 	if (!xa_empty(&submit->deps))
-		return xa_erase(&submit->deps, submit->last_dep++);
+		dep = xa_erase(&submit->deps, submit->last_dep++);
 
-	return NULL;
+	MSM_FUNC_EXIT("dep=%p", dep);
+	return dep;
 }
 
 static struct dma_fence *msm_job_run(struct drm_sched_job *job)
 {
 	struct msm_gem_submit *submit = to_msm_submit(job);
 	struct msm_gpu *gpu = submit->gpu;
+	struct dma_fence *fence;
+
+	MSM_FUNC_ENTER("submit=%p", submit);
 
 	submit->hw_fence = msm_fence_alloc(submit->ring->fctx);
 
@@ -40,15 +46,19 @@ static struct dma_fence *msm_job_run(struct drm_sched_job *job)
 
 	pm_runtime_put(&gpu->pdev->dev);
 
-	return dma_fence_get(submit->hw_fence);
+	fence = dma_fence_get(submit->hw_fence);
+	MSM_FUNC_EXIT("fence=%p", fence);
+	return fence;
 }
 
 static void msm_job_free(struct drm_sched_job *job)
 {
 	struct msm_gem_submit *submit = to_msm_submit(job);
 
+	MSM_FUNC_ENTER("submit=%p", submit);
 	drm_sched_job_cleanup(job);
 	msm_gem_submit_put(submit);
+	MSM_FUNC_EXIT("");
 }
 
 const struct drm_sched_backend_ops msm_sched_ops = {
@@ -67,6 +77,7 @@ struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id,
 
 	/* We assume everwhere that MSM_GPU_RINGBUFFER_SZ is a power of 2 */
 	BUILD_BUG_ON(!is_power_of_2(MSM_GPU_RINGBUFFER_SZ));
+	MSM_FUNC_ENTER("gpu=%p id=%d", gpu, id);
 
 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
 	if (!ring) {
@@ -113,7 +124,7 @@ struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id,
 	snprintf(name, sizeof(name), "gpu-ring-%d", ring->id);
 
 	ring->fctx = msm_fence_context_alloc(gpu->dev, &ring->memptrs->fence, name);
-
+	MSM_FUNC_EXIT("ring=%p", ring);
 	return ring;
 
 fail:
@@ -125,6 +136,7 @@ void msm_ringbuffer_destroy(struct msm_ringbuffer *ring)
 {
 	if (IS_ERR_OR_NULL(ring))
 		return;
+	MSM_FUNC_ENTER("ring=%p", ring);
 
 	drm_sched_fini(&ring->sched);
 
@@ -133,4 +145,5 @@ void msm_ringbuffer_destroy(struct msm_ringbuffer *ring)
 	msm_gem_kernel_put(ring->bo, ring->gpu->aspace);
 
 	kfree(ring);
+	MSM_FUNC_EXIT("");
 }

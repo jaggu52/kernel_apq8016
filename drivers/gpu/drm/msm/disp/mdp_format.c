@@ -145,6 +145,8 @@ uint32_t mdp_get_formats(uint32_t *pixel_formats, uint32_t max_formats,
 		bool rgb_only)
 {
 	uint32_t i;
+
+	MSM_FUNC_ENTER("[FMT] max=%u rgb_only=%d", max_formats, rgb_only);
 	for (i = 0; i < ARRAY_SIZE(formats); i++) {
 		const struct mdp_format *f = &formats[i];
 
@@ -157,6 +159,7 @@ uint32_t mdp_get_formats(uint32_t *pixel_formats, uint32_t max_formats,
 		pixel_formats[i] = f->base.pixel_format;
 	}
 
+	MSM_FUNC_EXIT("[FMT] count=%u", i);
 	return i;
 }
 
@@ -164,18 +167,33 @@ const struct msm_format *mdp_get_format(struct msm_kms *kms, uint32_t format,
 		uint64_t modifier)
 {
 	int i;
+	const struct msm_format *fmt = NULL;
+
+	MSM_FUNC_ENTER("[FMT] format=0x%08x modifier=0x%016llx",
+		       format, (unsigned long long)modifier);
 	for (i = 0; i < ARRAY_SIZE(formats); i++) {
 		const struct mdp_format *f = &formats[i];
-		if (f->base.pixel_format == format)
-			return &f->base;
+		if (f->base.pixel_format == format) {
+			fmt = &f->base;
+			break;
+		}
 	}
-	return NULL;
+	MSM_FUNC_EXIT("[FMT] fmt=%p", fmt);
+	return fmt;
 }
 
 struct csc_cfg *mdp_get_default_csc_cfg(enum csc_type type)
 {
-	if (WARN_ON(type >= CSC_MAX))
-		return NULL;
+	struct csc_cfg *cfg;
 
-	return &csc_convert[type];
+	MSM_FUNC_ENTER("[FMT] type=%d", type);
+	if (WARN_ON(type >= CSC_MAX)) {
+		MSM_FUNC_EXIT("[FMT] invalid type");
+		return NULL;
+	}
+
+	cfg = &csc_convert[type];
+
+	MSM_FUNC_EXIT("[FMT] cfg=%p", cfg);
+	return cfg;
 }

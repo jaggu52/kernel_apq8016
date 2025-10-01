@@ -1161,24 +1161,207 @@ static const struct mdp5_cfg_handler cfg_handlers_v3[] = {
 
 static struct mdp5_cfg_platform *mdp5_get_config(struct platform_device *dev);
 
+static void mdp5_cfg_dump_sub_block(const char *name,
+				 const struct mdp5_sub_block *block)
+{
+	unsigned int i;
+
+	MSM_FUNC_ENTER("name=%s block=%p", name, block);
+	if (!block) {
+		MSM_FUNC_EXIT("block=NULL");
+		return;
+	}
+
+	MDP5_DBG("%s: count=%u", name, block->count);
+	for (i = 0; i < block->count && i < ARRAY_SIZE(block->base); i++)
+		MDP5_DBG("%s base[%u]=0x%05x", name, i, block->base[i]);
+	MSM_FUNC_EXIT("");
+}
+
+static void mdp5_cfg_dump_pipe_block(const char *name,
+				 const struct mdp5_pipe_block *block)
+{
+	unsigned int i;
+
+	MSM_FUNC_ENTER("name=%s block=%p", name, block);
+	if (!block) {
+		MSM_FUNC_EXIT("block=NULL");
+		return;
+	}
+
+	MDP5_DBG("%s: count=%u caps=0x%08x", name, block->count, block->caps);
+	for (i = 0; i < block->count && i < ARRAY_SIZE(block->base); i++)
+		MDP5_DBG("%s base[%u]=0x%05x", name, i, block->base[i]);
+	MSM_FUNC_EXIT("");
+}
+
+static void mdp5_cfg_dump_mdp_block(const struct mdp5_mdp_block *block)
+{
+	unsigned int i;
+
+	MSM_FUNC_ENTER("block=%p", block);
+	if (!block) {
+		MSM_FUNC_EXIT("block=NULL");
+		return;
+	}
+
+	MDP5_DBG("mdp: count=%u caps=0x%08x", block->count, block->caps);
+	for (i = 0; i < block->count && i < ARRAY_SIZE(block->base); i++)
+		MDP5_DBG("mdp base[%u]=0x%05x", i, block->base[i]);
+	MSM_FUNC_EXIT("");
+}
+
+static void mdp5_cfg_dump_ctl_block(const struct mdp5_ctl_block *block)
+{
+	unsigned int i;
+
+	MSM_FUNC_ENTER("block=%p", block);
+	if (!block) {
+		MSM_FUNC_EXIT("block=NULL");
+		return;
+	}
+
+	MDP5_DBG("ctl: count=%u flush_mask=0x%08x", block->count,
+		block->flush_hw_mask);
+	for (i = 0; i < block->count && i < ARRAY_SIZE(block->base); i++)
+		MDP5_DBG("ctl base[%u]=0x%05x", i, block->base[i]);
+	MSM_FUNC_EXIT("");
+}
+
+static void mdp5_cfg_dump_smp_block(const struct mdp5_smp_block *block)
+{
+	unsigned int i;
+
+	MSM_FUNC_ENTER("block=%p", block);
+	if (!block) {
+		MSM_FUNC_EXIT("block=NULL");
+		return;
+	}
+
+	MDP5_DBG("smp: mmb_count=%d mmb_size=%d", block->mmb_count,
+		block->mmb_size);
+	for (i = 0; i < ARRAY_SIZE(block->clients); i++) {
+		if (!block->clients[i])
+			continue;
+		MDP5_DBG("smp client[%u]=%u", i, block->clients[i]);
+	}
+	MSM_FUNC_EXIT("");
+}
+
+static void mdp5_cfg_dump_lm_block(const struct mdp5_lm_block *block)
+{
+	unsigned int i;
+
+	MSM_FUNC_ENTER("block=%p", block);
+	if (!block) {
+		MSM_FUNC_EXIT("block=NULL");
+		return;
+	}
+
+	MDP5_DBG("lm: count=%u nb_stages=%u max_w=%u max_h=%u", block->count,
+		block->nb_stages, block->max_width, block->max_height);
+	for (i = 0; i < block->count && i < ARRAY_SIZE(block->base); i++)
+		MDP5_DBG("lm base[%u]=0x%05x", i, block->base[i]);
+	for (i = 0; i < block->count && i < ARRAY_SIZE(block->instances); i++) {
+		const struct mdp5_lm_instance *inst = &block->instances[i];
+
+		if (inst->id < 0)
+			continue;
+		MDP5_DBG("lm inst[%u]={id=%d pp=%d dspp=%d caps=0x%08x}", i,
+			inst->id, inst->pp, inst->dspp, inst->caps);
+	}
+	MSM_FUNC_EXIT("");
+}
+
+static void mdp5_cfg_dump_intf_block(const struct mdp5_intf_block *block)
+{
+	unsigned int i;
+
+	MSM_FUNC_ENTER("block=%p", block);
+	if (!block) {
+		MSM_FUNC_EXIT("block=NULL");
+		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(block->base); i++) {
+		if (!block->base[i])
+			continue;
+		MDP5_DBG("intf base[%u]=0x%05x type=%u", i, block->base[i],
+			block->connect[i]);
+	}
+	MSM_FUNC_EXIT("");
+}
+
+static void mdp5_cfg_dump_hw(const struct mdp5_cfg_hw *hw)
+{
+	MSM_FUNC_ENTER("hw=%p", hw);
+	if (!hw) {
+		MDP5_DBG("hw config: NULL");
+		MSM_FUNC_EXIT("hw=NULL");
+		return;
+	}
+
+	MDP5_DBG("hw config '%s': max_clk=%u", hw->name ?: "(null)",
+		hw->max_clk);
+	mdp5_cfg_dump_mdp_block(&hw->mdp);
+	mdp5_cfg_dump_smp_block(&hw->smp);
+	mdp5_cfg_dump_ctl_block(&hw->ctl);
+	mdp5_cfg_dump_pipe_block("pipe_vig", &hw->pipe_vig);
+	mdp5_cfg_dump_pipe_block("pipe_rgb", &hw->pipe_rgb);
+	mdp5_cfg_dump_pipe_block("pipe_dma", &hw->pipe_dma);
+	mdp5_cfg_dump_pipe_block("pipe_cursor", &hw->pipe_cursor);
+	mdp5_cfg_dump_lm_block(&hw->lm);
+	mdp5_cfg_dump_sub_block("dspp", &hw->dspp);
+	mdp5_cfg_dump_sub_block("ad", &hw->ad);
+	mdp5_cfg_dump_sub_block("pp", &hw->pp);
+	mdp5_cfg_dump_sub_block("dsc", &hw->dsc);
+	mdp5_cfg_dump_sub_block("cdm", &hw->cdm);
+	mdp5_cfg_dump_intf_block(&hw->intf);
+	MDP5_DBG("perf: ab=%u ib=%u clk=%u", hw->perf.ab_inefficiency,
+		hw->perf.ib_inefficiency, hw->perf.clk_inefficiency);
+	MSM_FUNC_EXIT("");
+}
+
 const struct mdp5_cfg_hw *mdp5_cfg_get_hw_config(struct mdp5_cfg_handler *cfg_handler)
 {
-	return cfg_handler->config.hw;
+	const struct mdp5_cfg_hw *hw;
+
+	MSM_FUNC_ENTER("cfg_handler=%p", cfg_handler);
+	hw = cfg_handler ? cfg_handler->config.hw : NULL;
+	MDP5_DBG("get_hw_config handler=%p hw=%s", cfg_handler,
+		hw && hw->name ? hw->name : "(null)");
+	MSM_FUNC_EXIT("hw=%p", hw);
+	return hw;
 }
 
 struct mdp5_cfg *mdp5_cfg_get_config(struct mdp5_cfg_handler *cfg_handler)
 {
-	return &cfg_handler->config;
+	struct mdp5_cfg *cfg;
+
+	MSM_FUNC_ENTER("cfg_handler=%p", cfg_handler);
+	cfg = cfg_handler ? &cfg_handler->config : NULL;
+	MDP5_DBG("get_config handler=%p cfg=%p", cfg_handler, cfg);
+	MSM_FUNC_EXIT("cfg=%p", cfg);
+	return cfg;
 }
 
 int mdp5_cfg_get_hw_rev(struct mdp5_cfg_handler *cfg_handler)
 {
-	return cfg_handler->revision;
+	int rev;
+
+	MSM_FUNC_ENTER("cfg_handler=%p", cfg_handler);
+	rev = cfg_handler ? cfg_handler->revision : -EINVAL;
+	MDP5_DBG("get_hw_rev handler=%p rev=%d", cfg_handler, rev);
+	MSM_FUNC_EXIT("rev=%d", rev);
+	return rev;
 }
 
 void mdp5_cfg_destroy(struct mdp5_cfg_handler *cfg_handler)
 {
+	MSM_FUNC_ENTER("cfg_handler=%p", cfg_handler);
+	MDP5_DBG("destroy handler=%p", cfg_handler);
 	kfree(cfg_handler);
+	MSM_FUNC_EXIT("");
 }
 
 struct mdp5_cfg_handler *mdp5_cfg_init(struct mdp5_kms *mdp5_kms,
@@ -1191,7 +1374,8 @@ struct mdp5_cfg_handler *mdp5_cfg_init(struct mdp5_kms *mdp5_kms,
 	struct mdp5_cfg_platform *pconfig;
 	int i, ret = 0, num_handlers;
 
-	MDP5_DBG("Entry");
+	MSM_FUNC_ENTER("kms=%p major=%u minor=%u", mdp5_kms, major, minor);
+	MDP5_DBG("init enter major=%u minor=%u", major, minor);
 
 	cfg_handler = kzalloc(sizeof(*cfg_handler), GFP_KERNEL);
 	if (unlikely(!cfg_handler)) {
@@ -1239,52 +1423,17 @@ struct mdp5_cfg_handler *mdp5_cfg_init(struct mdp5_kms *mdp5_kms,
 	memcpy(&cfg_handler->config.platform, pconfig, sizeof(*pconfig));
 
 	DBG("MDP5: %s hw config selected", mdp5_cfg->name);
-	MDP5_DBG("MDP5: %s hw config selected", mdp5_cfg->name);
-    MDP5_DBG("mdp5_cfg_hw values");
-    MDP5_DBG("mdp.count = 1");
-    MDP5_DBG("mdp.base = 0x0");
-    MDP5_DBG("mdp.caps = MDP_CAP_SMP");
-    MDP5_DBG("smp.mmb_count = 8");
-    MDP5_DBG("smp.mmb_size = 8192");
-    MDP5_DBG("smp.clients = [SSPP_VIG0] = 1, [SSPP_DMA0] = 4");
-    MDP5_DBG("smp.clients = [SSPP_RGB0] = 7, [SSPP_RGB1] = 8");
-    MDP5_DBG("ctl.count = 5");
-    MDP5_DBG("ctl.base = { 0x01000, 0x01200, 0x01400, 0x01600, 0x01800 }");
-    MDP5_DBG("ctl.flush_hw_mask = 0x4003ffff");
-    MDP5_DBG("pipe_vig.count = 1");
-    MDP5_DBG("pipe_vig.base = 0x04000");
-    MDP5_DBG("pipe_vig.caps = MDP_PIPE_CAP_HFLIP | MDP_PIPE_CAP_VFLIP");
-    MDP5_DBG("pipe_vig.caps = MDP_PIPE_CAP_SCALE | MDP_PIPE_CAP_CSC");
-    MDP5_DBG("pipe_vig.caps = MDP_PIPE_CAP_DECIMATION");
-	MDP5_DBG("pipe_rgb.count = 2");
-	MDP5_DBG("pipe_rgb.base = { 0x14000, 0x16000 }");
-	MDP5_DBG("pipe_rgb.caps = MDP_PIPE_CAP_HFLIP | MDP_PIPE_CAP_VFLIP |");
-	MDP5_DBG("pipe_rgb.caps = MDP_PIPE_CAP_DECIMATION");
-	MDP5_DBG("pipe_dma.count = 1");
-	MDP5_DBG("pipe_dma.base = 0x24000");
-	MDP5_DBG("pipe_dma.caps = MDP_PIPE_CAP_HFLIP | MDP_PIPE_CAP_VFLIP");
-	MDP5_DBG("lm.count = 2");
-	MDP5_DBG("lm.base = { 0x44000, 0x47000 }");
-	MDP5_DBG("lm.instances = { { .id = 0, .pp = 0, .dspp = 0, .caps = MDP_LM_CAP_DISPLAY, },");
-	MDP5_DBG("lm.instances = { .id = 3, .pp = -1, .dspp = -1, .caps = MDP_LM_CAP_WB }, }");
-	MDP5_DBG("lm.nb_stages = 8");
-	MDP5_DBG("lm.max_width = 2048");
-	MDP5_DBG("lm.max_height = 0xFFFF");
-	MDP5_DBG("dspp.count = 1");
-	MDP5_DBG("dspp.base = 0x54000");
-	MDP5_DBG("intf.base = { 0x00000, 0x6a800 }");
-	MDP5_DBG("intf.connect = {[0] = INTF_DISABLED, [1] = INTF_DSI,}");
-	MDP5_DBG("perf.ab_inefficiency = 100");
-	MDP5_DBG("perf.ib_inefficiency = 200");
-	MDP5_DBG("perf.clk_inefficiency = 105");
-	MDP5_DBG("max_clk = 320000000");
-	MDP5_DBG("");
+	MDP5_DBG("config selected: %s", mdp5_cfg->name);
+	mdp5_cfg_dump_hw(mdp5_cfg);
 
+	MSM_FUNC_EXIT("handler=%p", cfg_handler);
 	return cfg_handler;
 
 fail:
 	if (cfg_handler)
 		mdp5_cfg_destroy(cfg_handler);
+	MDP5_DBG("init failed ret=%d", ret);
+	MSM_FUNC_EXIT("err=%d", ret);
 
 	return ERR_PTR(ret);
 }
@@ -1293,8 +1442,11 @@ static struct mdp5_cfg_platform *mdp5_get_config(struct platform_device *dev)
 {
 	static struct mdp5_cfg_platform config = {};
 
-	MDP5_DBG("Get IOMMU information");
+	MSM_FUNC_ENTER("pdev=%p", dev);
+	MDP5_DBG("get_config platform_dev=%p", dev);
 	config.iommu = iommu_domain_alloc(&platform_bus_type);
+	MDP5_DBG("iommu domain=%p", config.iommu);
 
+	MSM_FUNC_EXIT("config=%p", &config);
 	return &config;
 }

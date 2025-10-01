@@ -30,30 +30,40 @@ struct mdp5_mdss {
 
 static inline void mdss_write(struct mdp5_mdss *mdp5_mdss, u32 reg, u32 data)
 {
+	MDP5_MDSS_DBG("write reg=0x%05x data=0x%08x", reg, data);
 	msm_writel(data, mdp5_mdss->mmio + reg);
 }
 
 static inline u32 mdss_read(struct mdp5_mdss *mdp5_mdss, u32 reg)
 {
-	return msm_readl(mdp5_mdss->mmio + reg);
+	u32 val = msm_readl(mdp5_mdss->mmio + reg);
+	MDP5_MDSS_DBG("read reg=0x%05x val=0x%08x", reg, val);
+	return val;
 }
 
 static irqreturn_t mdss_irq(int irq, void *arg)
 {
 	struct mdp5_mdss *mdp5_mdss = arg;
 	u32 intr;
+	MSM_FUNC_ENTER("[MDSS] irq=%d", irq);
 
 	intr = mdss_read(mdp5_mdss, REG_MDSS_HW_INTR_STATUS);
 
 	VERB("intr=%08x", intr);
+	MDP5_MDSS_DBG("irq intr=0x%08x", intr);
 
 	while (intr) {
 		irq_hw_number_t hwirq = fls(intr) - 1;
+		MDP5_MDSS_DBG("irq dispatch hwirq=%lu", hwirq);
 
 		generic_handle_domain_irq(mdp5_mdss->irqcontroller.domain, hwirq);
 		intr &= ~(1 << hwirq);
 	}
 
+	if (!intr)
+		MDP5_MDSS_DBG("irq done (no pending bits)");
+
+	MSM_FUNC_EXIT("[MDSS] irq=%d", irq);
 	return IRQ_HANDLED;
 }
 
@@ -71,19 +81,27 @@ static irqreturn_t mdss_irq(int irq, void *arg)
 static void mdss_hw_mask_irq(struct irq_data *irqd)
 {
 	struct mdp5_mdss *mdp5_mdss = irq_data_get_irq_chip_data(irqd);
+	MSM_FUNC_ENTER("[MDSS] mask hwirq=%lu", irqd->hwirq);
 
 	smp_mb__before_atomic();
 	clear_bit(irqd->hwirq, &mdp5_mdss->irqcontroller.enabled_mask);
 	smp_mb__after_atomic();
+	MDP5_MDSS_DBG("mask_irq hwirq=%lu mask=0x%lx", irqd->hwirq,
+		mdp5_mdss->irqcontroller.enabled_mask);
+	MSM_FUNC_EXIT("[MDSS] mask hwirq=%lu", irqd->hwirq);
 }
 
 static void mdss_hw_unmask_irq(struct irq_data *irqd)
 {
 	struct mdp5_mdss *mdp5_mdss = irq_data_get_irq_chip_data(irqd);
+	MSM_FUNC_ENTER("[MDSS] unmask hwirq=%lu", irqd->hwirq);
 
 	smp_mb__before_atomic();
 	set_bit(irqd->hwirq, &mdp5_mdss->irqcontroller.enabled_mask);
 	smp_mb__after_atomic();
+	MDP5_MDSS_DBG("unmask_irq hwirq=%lu mask=0x%lx", irqd->hwirq,
+		mdp5_mdss->irqcontroller.enabled_mask);
+	MSM_FUNC_EXIT("[MDSS] unmask hwirq=%lu", irqd->hwirq);
 }
 
 static struct irq_chip mdss_hw_irq_chip = {
@@ -96,14 +114,22 @@ static int mdss_hw_irqdomain_map(struct irq_domain *d, unsigned int irq,
 				 irq_hw_number_t hwirq)
 {
 	struct mdp5_mdss *mdp5_mdss = d->host_data;
+	int ret = 0;
 
-	if (!(VALID_IRQS & (1 << hwirq)))
-		return -EPERM;
+	MSM_FUNC_ENTER("[MDSS] irq=%u hwirq=%lu", irq, hwirq);
+
+	if (!(VALID_IRQS & (1 << hwirq))) {
+		ret = -EPERM;
+		goto out;
+	}
 
 	irq_set_chip_and_handler(irq, &mdss_hw_irq_chip, handle_level_irq);
 	irq_set_chip_data(irq, mdp5_mdss);
+	MDP5_MDSS_DBG("irqdomain_map irq=%u hwirq=%lu", irq, hwirq);
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("[MDSS] ret=%d", ret);
+	return ret;
 }
 
 static const struct irq_domain_ops mdss_hw_irqdomain_ops = {
@@ -116,31 +142,40 @@ static int mdss_irq_domain_init(struct mdp5_mdss *mdp5_mdss)
 {
 	struct device *dev = mdp5_mdss->base.dev->dev;
 	struct irq_domain *d;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[MDSS] mdss=%p", mdp5_mdss);
 
 	d = irq_domain_add_linear(dev->of_node, 32, &mdss_hw_irqdomain_ops,
 				  mdp5_mdss);
 	if (!d) {
 		DRM_DEV_ERROR(dev, "mdss irq domain add failed\n");
-		return -ENXIO;
+		ret = -ENXIO;
+		goto out;
 	}
 
 	mdp5_mdss->irqcontroller.enabled_mask = 0;
 	mdp5_mdss->irqcontroller.domain = d;
+	MDP5_MDSS_DBG("irq_domain_init done domain=%p", d);
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("[MDSS] ret=%d", ret);
+	return ret;
 }
 
 static int mdp5_mdss_enable(struct msm_mdss *mdss)
 {
 	struct mdp5_mdss *mdp5_mdss = to_mdp5_mdss(mdss);
 	DBG("");
+	MDP5_MDSS_DBG("enable mdss=%p", mdss);
+	MSM_FUNC_ENTER("[MDSS] mdss=%p", mdss);
 
 	clk_prepare_enable(mdp5_mdss->ahb_clk);
 	if (mdp5_mdss->axi_clk)
 		clk_prepare_enable(mdp5_mdss->axi_clk);
 	if (mdp5_mdss->vsync_clk)
 		clk_prepare_enable(mdp5_mdss->vsync_clk);
-
+	MSM_FUNC_EXIT("[MDSS] mdss=%p", mdss);
 	return 0;
 }
 
@@ -148,13 +183,16 @@ static int mdp5_mdss_disable(struct msm_mdss *mdss)
 {
 	struct mdp5_mdss *mdp5_mdss = to_mdp5_mdss(mdss);
 	DBG("");
+	MDP5_MDSS_DBG("disable mdss=%p", mdss);
+	MSM_FUNC_ENTER("[MDSS] mdss=%p", mdss);
 
 	if (mdp5_mdss->vsync_clk)
 		clk_disable_unprepare(mdp5_mdss->vsync_clk);
 	if (mdp5_mdss->axi_clk)
 		clk_disable_unprepare(mdp5_mdss->axi_clk);
 	clk_disable_unprepare(mdp5_mdss->ahb_clk);
-
+	MDP5_MDSS_DBG("disable complete mdss=%p", mdss);
+	MSM_FUNC_EXIT("[MDSS] mdss=%p", mdss);
 	return 0;
 }
 
@@ -162,6 +200,9 @@ static int msm_mdss_get_clocks(struct mdp5_mdss *mdp5_mdss)
 {
 	struct platform_device *pdev =
 			to_platform_device(mdp5_mdss->base.dev->dev);
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[MDSS] mdss=%p", mdp5_mdss);
 
 	mdp5_mdss->ahb_clk = msm_clk_get(pdev, "iface");
 	if (IS_ERR(mdp5_mdss->ahb_clk))
@@ -175,7 +216,15 @@ static int msm_mdss_get_clocks(struct mdp5_mdss *mdp5_mdss)
 	if (IS_ERR(mdp5_mdss->vsync_clk))
 		mdp5_mdss->vsync_clk = NULL;
 
-	return 0;
+	MDP5_MDSS_DBG("get_clocks iface=%p bus=%p vsync=%p",
+		mdp5_mdss->ahb_clk, mdp5_mdss->axi_clk, mdp5_mdss->vsync_clk);
+	if (!mdp5_mdss->ahb_clk || !mdp5_mdss->axi_clk)
+		MDP5_MDSS_DBG("clock warning missing iface=%d bus=%d",
+			!!mdp5_mdss->ahb_clk, !!mdp5_mdss->axi_clk);
+
+	MSM_FUNC_EXIT("[MDSS] iface=%p bus=%p vsync=%p", mdp5_mdss->ahb_clk,
+		mdp5_mdss->axi_clk, mdp5_mdss->vsync_clk);
+	return ret;
 }
 
 static void mdp5_mdss_destroy(struct drm_device *dev)
@@ -185,6 +234,8 @@ static void mdp5_mdss_destroy(struct drm_device *dev)
 
 	if (!mdp5_mdss)
 		return;
+	MDP5_MDSS_DBG("destroy dev=%p", dev);
+	MSM_FUNC_ENTER("[MDSS] dev=%p", dev);
 
 	irq_domain_remove(mdp5_mdss->irqcontroller.domain);
 	mdp5_mdss->irqcontroller.domain = NULL;
@@ -192,6 +243,7 @@ static void mdp5_mdss_destroy(struct drm_device *dev)
 	regulator_disable(mdp5_mdss->vdd);
 
 	pm_runtime_disable(dev->dev);
+	MSM_FUNC_EXIT("[MDSS] dev=%p", dev);
 }
 
 static const struct msm_mdss_funcs mdss_funcs = {
@@ -208,9 +260,12 @@ int mdp5_mdss_init(struct drm_device *dev)
 	int ret;
 
 	DBG("");
+	MSM_FUNC_ENTER("[MDSS] dev=%p", dev);
 
-	if (!of_device_is_compatible(dev->dev->of_node, "qcom,mdss"))
+	if (!of_device_is_compatible(dev->dev->of_node, "qcom,mdss")) {
+		MSM_FUNC_EXIT("[MDSS] dev=%p not compatible", dev);
 		return 0;
+	}
 
 	mdp5_mdss = devm_kzalloc(dev->dev, sizeof(*mdp5_mdss), GFP_KERNEL);
 	if (!mdp5_mdss) {
@@ -269,10 +324,11 @@ int mdp5_mdss_init(struct drm_device *dev)
 	priv->mdss = &mdp5_mdss->base;
 
 	pm_runtime_enable(dev->dev);
-
+	MSM_FUNC_EXIT("[MDSS] dev=%p ret=0", dev);
 	return 0;
 fail_irq:
 	regulator_disable(mdp5_mdss->vdd);
 fail:
+	MSM_FUNC_EXIT("[MDSS] dev=%p ret=%d", dev, ret);
 	return ret;
 }

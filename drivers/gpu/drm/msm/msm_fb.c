@@ -36,6 +36,7 @@ void msm_framebuffer_describe(struct drm_framebuffer *fb, struct seq_file *m)
 	struct msm_gem_stats stats = {};
 	int i, n = fb->format->num_planes;
 
+	MSM_FUNC_ENTER("fb=%p", fb);
 	seq_printf(m, "fb: %dx%d@%4.4s (%2d, ID:%d)\n",
 			fb->width, fb->height, (char *)&fb->format->format,
 			drm_framebuffer_read_refcount(fb), fb->base.id);
@@ -45,6 +46,7 @@ void msm_framebuffer_describe(struct drm_framebuffer *fb, struct seq_file *m)
 				i, fb->offsets[i], fb->pitches[i]);
 		msm_gem_describe(fb->obj[i], m, &stats);
 	}
+	MSM_FUNC_EXIT("");
 }
 #endif
 
@@ -59,14 +61,19 @@ int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 	int ret, i, n = fb->format->num_planes;
 	uint64_t iova;
 
+	MSM_FUNC_ENTER("fb=%p", fb);
 	for (i = 0; i < n; i++) {
 		ret = msm_gem_get_and_pin_iova(fb->obj[i], aspace, &iova);
 		drm_dbg_state(fb->dev, "FB[%u]: iova[%d]: %08llx (%d)", fb->base.id, i, iova, ret);
 		if (ret)
-			return ret;
+			goto out;
 	}
 
-	return 0;
+	ret = 0;
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
@@ -74,27 +81,45 @@ void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
 {
 	int i, n = fb->format->num_planes;
 
+	MSM_FUNC_ENTER("fb=%p", fb);
 	for (i = 0; i < n; i++)
 		msm_gem_unpin_iova(fb->obj[i], aspace);
+	MSM_FUNC_EXIT("");
 }
 
 uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace, int plane)
 {
+	uint32_t addr;
+
+	MSM_FUNC_ENTER("fb=%p plane=%d", fb, plane);
 	if (!fb->obj[plane])
-		return 0;
-	return msm_gem_iova(fb->obj[plane], aspace) + fb->offsets[plane];
+		addr = 0;
+	else
+		addr = msm_gem_iova(fb->obj[plane], aspace) + fb->offsets[plane];
+	MSM_FUNC_EXIT("addr=0x%08x", addr);
+	return addr;
 }
 
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane)
 {
-	return drm_gem_fb_get_obj(fb, plane);
+	struct drm_gem_object *obj;
+
+	MSM_FUNC_ENTER("fb=%p plane=%d", fb, plane);
+	obj = drm_gem_fb_get_obj(fb, plane);
+	MSM_FUNC_EXIT("obj=%p", obj);
+	return obj;
 }
 
 const struct msm_format *msm_framebuffer_format(struct drm_framebuffer *fb)
 {
 	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
-	return msm_fb->format;
+	const struct msm_format *fmt;
+
+	MSM_FUNC_ENTER("fb=%p", fb);
+	fmt = msm_fb->format;
+	MSM_FUNC_EXIT("format=%p", fmt);
+	return fmt;
 }
 
 struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
@@ -106,6 +131,7 @@ struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
 	struct drm_framebuffer *fb;
 	int ret, i, n = info->num_planes;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	for (i = 0; i < n; i++) {
 		bos[i] = drm_gem_object_lookup(file, mode_cmd->handles[i]);
 		if (!bos[i]) {
@@ -120,11 +146,13 @@ struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
 		goto out_unref;
 	}
 
+	MSM_FUNC_EXIT("fb=%p", fb);
 	return fb;
 
 out_unref:
 	for (i = 0; i < n; i++)
 		drm_gem_object_put(bos[i]);
+	MSM_FUNC_EXIT("err=%d", ret);
 	return ERR_PTR(ret);
 }
 
@@ -140,6 +168,7 @@ static struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
 	const struct msm_format *format;
 	int ret, i, n;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	drm_dbg_state(dev, "create framebuffer: mode_cmd=%p (%dx%d@%4.4s)",
 			mode_cmd, mode_cmd->width, mode_cmd->height,
 			(char *)&mode_cmd->pixel_format);
@@ -195,12 +224,12 @@ static struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
 	}
 
 	drm_dbg_state(dev, "create: FB ID: %d (%p)", fb->base.id, fb);
-
+	MSM_FUNC_EXIT("fb=%p", fb);
 	return fb;
 
 fail:
 	kfree(msm_fb);
-
+	MSM_FUNC_EXIT("err=%d", ret);
 	return ERR_PTR(ret);
 }
 
@@ -217,6 +246,7 @@ msm_alloc_stolen_fb(struct drm_device *dev, int w, int h, int p, uint32_t format
 	struct drm_framebuffer *fb;
 	int size;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	/* allocate backing bo */
 	size = mode_cmd.pitches[0] * mode_cmd.height;
 	DBG("allocating %d bytes for fb %d", size, dev->primary->index);
@@ -240,8 +270,10 @@ msm_alloc_stolen_fb(struct drm_device *dev, int w, int h, int p, uint32_t format
 		 * to unref the bo:
 		 */
 		drm_gem_object_put(bo);
+		MSM_FUNC_EXIT("err=%ld", PTR_ERR(fb));
 		return ERR_CAST(fb);
 	}
 
+	MSM_FUNC_EXIT("fb=%p", fb);
 	return fb;
 }

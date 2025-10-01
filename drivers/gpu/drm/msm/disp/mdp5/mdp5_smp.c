@@ -32,8 +32,9 @@ static inline
 struct mdp5_kms *get_kms(struct mdp5_smp *smp)
 {
 	struct msm_drm_private *priv = smp->dev->dev_private;
-
-	return to_mdp5_kms(to_mdp_kms(priv->kms));
+	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(priv->kms));
+	MDP5_SMP_DBG("get_kms smp=%p kms=%p", smp, mdp5_kms);
+	return mdp5_kms;
 }
 
 static inline u32 pipe2client(enum mdp5_pipe pipe, int plane)
@@ -71,6 +72,7 @@ static int smp_request_block(struct mdp5_smp *smp,
 	WARN_ON(bitmap_weight(cs, cnt) > 0);
 
 	reserved = smp->reserved[cid];
+	MDP5_SMP_DBG("request cid=%u nblks=%d reserved=%u", cid, nblks, reserved);
 
 	if (reserved) {
 		nblks = max(0, nblks - reserved);
@@ -89,6 +91,7 @@ static int smp_request_block(struct mdp5_smp *smp,
 		set_bit(blk, cs);
 		set_bit(blk, state->state);
 	}
+	MDP5_SMP_DBG("request cid=%u granted=%d", cid, nblks);
 
 	return 0;
 }
@@ -105,6 +108,8 @@ static void set_fifo_thresholds(struct mdp5_smp *smp,
 	smp->pipe_reqprio_fifo_wm0[pipe] = val * 1;
 	smp->pipe_reqprio_fifo_wm1[pipe] = val * 2;
 	smp->pipe_reqprio_fifo_wm2[pipe] = val * 3;
+	MDP5_SMP_DBG("fifo_thresholds pipe=%s nblks=%d wm=%u", pipe2name(pipe),
+		nblks, val);
 }
 
 /*
@@ -122,6 +127,7 @@ uint32_t mdp5_smp_calculate(struct mdp5_smp *smp,
 	int rev = mdp5_cfg_get_hw_rev(mdp5_kms->cfg);
 	int i, hsub, nplanes, nlines;
 	uint32_t blkcfg = 0;
+	MSM_FUNC_ENTER("[SMP] calculate width=%u hdecim=%d", width, hdecim);
 
 	nplanes = info->num_planes;
 	hsub = info->hsub;
@@ -157,6 +163,19 @@ uint32_t mdp5_smp_calculate(struct mdp5_smp *smp,
 
 		blkcfg |= (n << (8 * i));
 	}
+	{
+		u32 fourcc = format->base.pixel_format;
+		char fmt[5] = {
+			(fourcc >> 0) & 0xff,
+			(fourcc >> 8) & 0xff,
+			(fourcc >> 16) & 0xff,
+			(fourcc >> 24) & 0xff,
+			0,
+		};
+		MDP5_SMP_DBG("calculate format=%s width=%u hdecim=%d blkcfg=0x%08x",
+			fmt, width, hdecim, blkcfg);
+	}
+	MSM_FUNC_EXIT("[SMP] calculate blkcfg=0x%08x", blkcfg);
 
 	return blkcfg;
 }
@@ -167,6 +186,7 @@ int mdp5_smp_assign(struct mdp5_smp *smp, struct mdp5_smp_state *state,
 	struct mdp5_kms *mdp5_kms = get_kms(smp);
 	struct drm_device *dev = mdp5_kms->dev;
 	int i, ret;
+	MSM_FUNC_ENTER("[SMP] assign pipe=%s blkcfg=0x%08x", pipe2name(pipe), blkcfg);
 
 	for (i = 0; i < pipe2nclients(pipe); i++) {
 		u32 cid = pipe2client(pipe, i);
@@ -176,6 +196,7 @@ int mdp5_smp_assign(struct mdp5_smp *smp, struct mdp5_smp_state *state,
 			continue;
 
 		DBG("%s[%d]: request %d SMP blocks", pipe2name(pipe), i, n);
+		MDP5_SMP_DBG("assign_request pipe=%s plane=%d n=%d", pipe2name(pipe), i, n);
 		ret = smp_request_block(smp, state, cid, n);
 		if (ret) {
 			DRM_DEV_ERROR(dev->dev, "Cannot allocate %d SMP blocks: %d\n",
@@ -187,6 +208,8 @@ int mdp5_smp_assign(struct mdp5_smp *smp, struct mdp5_smp_state *state,
 	}
 
 	state->assigned |= (1 << pipe);
+	MDP5_SMP_DBG("assign_done pipe=%s blkcfg=0x%08x", pipe2name(pipe), blkcfg);
+	MSM_FUNC_EXIT("[SMP] assign pipe=%s", pipe2name(pipe));
 
 	return 0;
 }
@@ -197,6 +220,7 @@ void mdp5_smp_release(struct mdp5_smp *smp, struct mdp5_smp_state *state,
 {
 	int i;
 	int cnt = smp->blk_cnt;
+	MSM_FUNC_ENTER("[SMP] release pipe=%s", pipe2name(pipe));
 
 	for (i = 0; i < pipe2nclients(pipe); i++) {
 		u32 cid = pipe2client(pipe, i);
@@ -207,9 +231,12 @@ void mdp5_smp_release(struct mdp5_smp *smp, struct mdp5_smp_state *state,
 
 		/* clear client's state */
 		bitmap_zero(cs, cnt);
+		MDP5_SMP_DBG("release cid=%u pipe=%s", cid, pipe2name(pipe));
 	}
 
 	state->released |= (1 << pipe);
+	MDP5_SMP_DBG("release pipe=%s", pipe2name(pipe));
+	MSM_FUNC_EXIT("[SMP] release pipe=%s", pipe2name(pipe));
 }
 
 /* NOTE: SMP_ALLOC_* regs are *not* double buffered, so release has to
@@ -248,6 +275,7 @@ static unsigned update_smp_state(struct mdp5_smp *smp,
 
 		nblks++;
 	}
+	MDP5_SMP_DBG("update_state cid=%u nblks=%u", cid, nblks);
 
 	return nblks;
 }
@@ -264,7 +292,10 @@ static void write_smp_alloc_regs(struct mdp5_smp *smp)
 			   smp->alloc_w[i]);
 		mdp5_write(mdp5_kms, REG_MDP5_SMP_ALLOC_R_REG(i),
 			   smp->alloc_r[i]);
+		MDP5_SMP_DBG("alloc_reg[%d] W=0x%08x R=0x%08x", i,
+			smp->alloc_w[i], smp->alloc_r[i]);
 	}
+	MDP5_SMP_DBG("write_alloc_regs num=%d", num_regs);
 }
 
 static void write_smp_fifo_regs(struct mdp5_smp *smp)
@@ -282,12 +313,17 @@ static void write_smp_fifo_regs(struct mdp5_smp *smp)
 			   smp->pipe_reqprio_fifo_wm1[pipe]);
 		mdp5_write(mdp5_kms, REG_MDP5_PIPE_REQPRIO_FIFO_WM_2(pipe),
 			   smp->pipe_reqprio_fifo_wm2[pipe]);
+		MDP5_SMP_DBG("fifo_reg pipe=%s wm0=%u wm1=%u wm2=%u",
+			pipe2name(pipe), smp->pipe_reqprio_fifo_wm0[pipe],
+			smp->pipe_reqprio_fifo_wm1[pipe], smp->pipe_reqprio_fifo_wm2[pipe]);
 	}
+	MDP5_SMP_DBG("write_fifo_regs num_pipes=%d", mdp5_kms->num_hwpipes);
 }
 
 void mdp5_smp_prepare_commit(struct mdp5_smp *smp, struct mdp5_smp_state *state)
 {
 	enum mdp5_pipe pipe;
+	MSM_FUNC_ENTER("[SMP] prepare_commit");
 
 	for_each_set_bit(pipe, &state->assigned, sizeof(state->assigned) * 8) {
 		unsigned i, nblks = 0;
@@ -300,6 +336,8 @@ void mdp5_smp_prepare_commit(struct mdp5_smp *smp, struct mdp5_smp_state *state)
 
 			DBG("assign %s:%u, %u blks",
 				pipe2name(pipe), i, nblks);
+			MDP5_SMP_DBG("prepare_commit pipe=%s cid=%u running_total=%u",
+				pipe2name(pipe), cid, nblks);
 		}
 
 		set_fifo_thresholds(smp, pipe, nblks);
@@ -309,20 +347,26 @@ void mdp5_smp_prepare_commit(struct mdp5_smp *smp, struct mdp5_smp_state *state)
 	write_smp_fifo_regs(smp);
 
 	state->assigned = 0;
+	MDP5_SMP_DBG("prepare_commit done assigned=0");
+	MSM_FUNC_EXIT("[SMP] prepare_commit");
 }
 
 void mdp5_smp_complete_commit(struct mdp5_smp *smp, struct mdp5_smp_state *state)
 {
 	enum mdp5_pipe pipe;
+	MSM_FUNC_ENTER("[SMP] complete_commit");
 
 	for_each_set_bit(pipe, &state->released, sizeof(state->released) * 8) {
 		DBG("release %s", pipe2name(pipe));
 		set_fifo_thresholds(smp, pipe, 0);
+		MDP5_SMP_DBG("complete_commit cleared pipe=%s", pipe2name(pipe));
 	}
 
 	write_smp_fifo_regs(smp);
 
 	state->released = 0;
+	MDP5_SMP_DBG("complete_commit done released=0");
+	MSM_FUNC_EXIT("[SMP] complete_commit");
 }
 
 void mdp5_smp_dump(struct mdp5_smp *smp, struct drm_printer *p)
@@ -332,6 +376,8 @@ void mdp5_smp_dump(struct mdp5_smp *smp, struct drm_printer *p)
 	struct mdp5_smp_state *state;
 	struct mdp5_global_state *global_state;
 	int total = 0, i, j;
+	MDP5_SMP_DBG("dump smp=%p", smp);
+	MSM_FUNC_ENTER("[SMP] dump");
 
 	drm_printf(p, "name\tinuse\tplane\n");
 	drm_printf(p, "----\t-----\t-----\n");
@@ -368,11 +414,14 @@ void mdp5_smp_dump(struct mdp5_smp *smp, struct drm_printer *p)
 
 	if (drm_can_sleep())
 		drm_modeset_unlock(&mdp5_kms->glob_state_lock);
+	MSM_FUNC_EXIT("[SMP] dump total=%d", total);
 }
 
 void mdp5_smp_destroy(struct mdp5_smp *smp)
 {
+	MSM_FUNC_ENTER("[SMP] destroy smp=%p", smp);
 	kfree(smp);
+	MSM_FUNC_EXIT("[SMP] destroy");
 }
 
 struct mdp5_smp *mdp5_smp_init(struct mdp5_kms *mdp5_kms, const struct mdp5_smp_block *cfg)
@@ -381,6 +430,7 @@ struct mdp5_smp *mdp5_smp_init(struct mdp5_kms *mdp5_kms, const struct mdp5_smp_
 	struct mdp5_global_state *global_state;
 	struct mdp5_smp *smp = NULL;
 	int ret;
+	MSM_FUNC_ENTER("[SMP] init cfg_blks=%d", cfg->mmb_count);
 
 	smp = kzalloc(sizeof(*smp), GFP_KERNEL);
 	if (unlikely(!smp)) {
@@ -391,6 +441,7 @@ struct mdp5_smp *mdp5_smp_init(struct mdp5_kms *mdp5_kms, const struct mdp5_smp_
 	smp->dev = mdp5_kms->dev;
 	smp->blk_cnt = cfg->mmb_count;
 	smp->blk_size = cfg->mmb_size;
+	MDP5_SMP_DBG("init blk_cnt=%d blk_size=%d", smp->blk_cnt, smp->blk_size);
 
 	global_state = mdp5_get_existing_global_state(mdp5_kms);
 	state = &global_state->smp;
@@ -398,11 +449,15 @@ struct mdp5_smp *mdp5_smp_init(struct mdp5_kms *mdp5_kms, const struct mdp5_smp_
 	/* statically tied MMBs cannot be re-allocated: */
 	bitmap_copy(state->state, cfg->reserved_state, smp->blk_cnt);
 	memcpy(smp->reserved, cfg->reserved, sizeof(smp->reserved));
+	MDP5_SMP_DBG("init success blk_cnt=%d reserved_weight=%u", smp->blk_cnt,
+		bitmap_weight(cfg->reserved_state, smp->blk_cnt));
+	MSM_FUNC_EXIT("[SMP] init smp=%p", smp);
 
 	return smp;
 fail:
 	if (smp)
 		mdp5_smp_destroy(smp);
+	MDP5_SMP_DBG("init failed ret=%d", ret);
 
 	return ERR_PTR(ret);
 }

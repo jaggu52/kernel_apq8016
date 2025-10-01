@@ -16,10 +16,15 @@ int mdp5_pipe_assign(struct drm_atomic_state *s, struct drm_plane *plane,
 	struct mdp5_global_state *new_global_state, *old_global_state;
 	struct mdp5_hw_pipe_state *old_state, *new_state;
 	int i, j;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("plane=%s caps=0x%08x blkcfg=0x%08x", plane->name, caps, blkcfg);
 
 	new_global_state = mdp5_get_global_state(s);
-	if (IS_ERR(new_global_state))
-		return PTR_ERR(new_global_state);
+	if (IS_ERR(new_global_state)) {
+		ret = PTR_ERR(new_global_state);
+		goto exit;
+	}
 
 	/* grab old_state after mdp5_get_global_state(), since now we hold lock: */
 	old_global_state = mdp5_get_existing_global_state(mdp5_kms);
@@ -85,23 +90,29 @@ int mdp5_pipe_assign(struct drm_atomic_state *s, struct drm_plane *plane,
 		}
 	}
 
-	if (!(*hwpipe))
-		return -ENOMEM;
+	if (!(*hwpipe)) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
-	if (r_hwpipe && !(*r_hwpipe))
-		return -ENOMEM;
+	if (r_hwpipe && !(*r_hwpipe)) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
 	if (mdp5_kms->smp) {
-		int ret;
+		int smp_ret;
 
 		/* We don't support SMP and 2 hwpipes/plane together */
 		WARN_ON(r_hwpipe);
 
 		DBG("%s: alloc SMP blocks", (*hwpipe)->name);
-		ret = mdp5_smp_assign(mdp5_kms->smp, &new_global_state->smp,
+		smp_ret = mdp5_smp_assign(mdp5_kms->smp, &new_global_state->smp,
 				(*hwpipe)->pipe, blkcfg);
-		if (ret)
-			return -ENOMEM;
+		if (smp_ret) {
+			ret = -ENOMEM;
+			goto exit;
+		}
 
 		(*hwpipe)->blkcfg = blkcfg;
 	}
@@ -116,7 +127,11 @@ int mdp5_pipe_assign(struct drm_atomic_state *s, struct drm_plane *plane,
 		new_state->hwpipe_to_plane[(*r_hwpipe)->idx] = plane;
 	}
 
-	return 0;
+	ret = 0;
+
+exit:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 void mdp5_pipe_release(struct drm_atomic_state *s, struct mdp5_hw_pipe *hwpipe)
@@ -126,11 +141,13 @@ void mdp5_pipe_release(struct drm_atomic_state *s, struct mdp5_hw_pipe *hwpipe)
 	struct mdp5_global_state *state = mdp5_get_global_state(s);
 	struct mdp5_hw_pipe_state *new_state = &state->hwpipe;
 
+	MSM_FUNC_ENTER("hwpipe=%s", hwpipe ? hwpipe->name : "(null)");
+
 	if (!hwpipe)
-		return;
+		goto exit;
 
 	if (WARN_ON(!new_state->hwpipe_to_plane[hwpipe->idx]))
-		return;
+		goto exit;
 
 	DBG("%s: release from plane %s", hwpipe->name,
 		new_state->hwpipe_to_plane[hwpipe->idx]->name);
@@ -141,11 +158,16 @@ void mdp5_pipe_release(struct drm_atomic_state *s, struct mdp5_hw_pipe *hwpipe)
 	}
 
 	new_state->hwpipe_to_plane[hwpipe->idx] = NULL;
+
+exit:
+	MSM_FUNC_EXIT("");
 }
 
 void mdp5_pipe_destroy(struct mdp5_hw_pipe *hwpipe)
 {
+	MSM_FUNC_ENTER("hwpipe=%p", hwpipe);
 	kfree(hwpipe);
+	MSM_FUNC_EXIT("");
 }
 
 struct mdp5_hw_pipe *mdp5_pipe_init(enum mdp5_pipe pipe,
@@ -153,9 +175,10 @@ struct mdp5_hw_pipe *mdp5_pipe_init(enum mdp5_pipe pipe,
 {
 	struct mdp5_hw_pipe *hwpipe;
 
+	MSM_FUNC_ENTER("pipe=%d", pipe);
 	hwpipe = kzalloc(sizeof(*hwpipe), GFP_KERNEL);
 	if (!hwpipe)
-		return ERR_PTR(-ENOMEM);
+		goto fail;
 
 	hwpipe->name = pipe2name(pipe);
 	hwpipe->pipe = pipe;
@@ -163,5 +186,10 @@ struct mdp5_hw_pipe *mdp5_pipe_init(enum mdp5_pipe pipe,
 	hwpipe->caps = caps;
 	hwpipe->flush_mask = mdp_ctl_flush_mask_pipe(pipe);
 
+	MSM_FUNC_EXIT("hwpipe=%p", hwpipe);
 	return hwpipe;
+
+fail:
+	MSM_FUNC_EXIT("err=%d", -ENOMEM);
+	return ERR_PTR(-ENOMEM);
 }

@@ -29,16 +29,20 @@ static int msm_gpu_show(struct seq_file *m, void *arg)
 	struct msm_gpu *gpu = priv->gpu;
 	int ret;
 
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 	ret = mutex_lock_interruptible(&show_priv->dev->struct_mutex);
 	if (ret)
-		return ret;
+		goto out;
 
 	drm_printf(&p, "%s Status:\n", gpu->name);
 	gpu->funcs->show(gpu, show_priv->state, &p);
 
 	mutex_unlock(&show_priv->dev->struct_mutex);
+	ret = 0;
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_gpu_release(struct inode *inode, struct file *file)
@@ -47,14 +51,18 @@ static int msm_gpu_release(struct inode *inode, struct file *file)
 	struct msm_gpu_show_priv *show_priv = m->private;
 	struct msm_drm_private *priv = show_priv->dev->dev_private;
 	struct msm_gpu *gpu = priv->gpu;
+	int ret;
 
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 	mutex_lock(&show_priv->dev->struct_mutex);
 	gpu->funcs->gpu_state_put(show_priv->state);
 	mutex_unlock(&show_priv->dev->struct_mutex);
 
 	kfree(show_priv);
 
-	return single_release(inode, file);
+	ret = single_release(inode, file);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_gpu_open(struct inode *inode, struct file *file)
@@ -65,12 +73,17 @@ static int msm_gpu_open(struct inode *inode, struct file *file)
 	struct msm_gpu_show_priv *show_priv;
 	int ret;
 
-	if (!gpu || !gpu->funcs->gpu_state_get)
-		return -ENODEV;
+	MSM_FUNC_ENTER("gpu=%p", gpu);
+	if (!gpu || !gpu->funcs->gpu_state_get) {
+		ret = -ENODEV;
+		goto out;
+	}
 
 	show_priv = kmalloc(sizeof(*show_priv), GFP_KERNEL);
-	if (!show_priv)
-		return -ENOMEM;
+	if (!show_priv) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	ret = mutex_lock_interruptible(&dev->struct_mutex);
 	if (ret)
@@ -94,10 +107,16 @@ static int msm_gpu_open(struct inode *inode, struct file *file)
 	if (ret)
 		goto free_priv;
 
+	MSM_FUNC_EXIT("ret=0");
 	return 0;
 
 free_priv:
 	kfree(show_priv);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -114,8 +133,9 @@ static unsigned long last_shrink_freed;
 static int
 shrink_get(void *data, u64 *val)
 {
+	MSM_FUNC_ENTER("data=%p", data);
 	*val = last_shrink_freed;
-
+	MSM_FUNC_EXIT("val=0x%llx", last_shrink_freed);
 	return 0;
 }
 
@@ -124,8 +144,10 @@ shrink_set(void *data, u64 val)
 {
 	struct drm_device *dev = data;
 
+	MSM_FUNC_ENTER("dev=%p val=0x%llx", dev, val);
 	last_shrink_freed = msm_gem_shrinker_shrink(dev, val);
 
+	MSM_FUNC_EXIT("freed=0x%lx", last_shrink_freed);
 	return 0;
 }
 
@@ -139,23 +161,28 @@ static int msm_gem_show(struct drm_device *dev, struct seq_file *m)
 	struct msm_drm_private *priv = dev->dev_private;
 	int ret;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	ret = mutex_lock_interruptible(&priv->obj_lock);
 	if (ret)
-		return ret;
+		goto out;
 
 	msm_gem_describe_objects(&priv->objects, m);
 
 	mutex_unlock(&priv->obj_lock);
+	ret = 0;
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_mm_show(struct drm_device *dev, struct seq_file *m)
 {
 	struct drm_printer p = drm_seq_file_printer(m);
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	drm_mm_print(&dev->vma_offset_manager->vm_addr_space_mm, &p);
-
+	MSM_FUNC_EXIT("");
 	return 0;
 }
 
@@ -164,6 +191,7 @@ static int msm_fb_show(struct drm_device *dev, struct seq_file *m)
 	struct msm_drm_private *priv = dev->dev_private;
 	struct drm_framebuffer *fb, *fbdev_fb = NULL;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	if (priv->fbdev) {
 		seq_printf(m, "fbcon ");
 		fbdev_fb = priv->fbdev->fb;
@@ -180,6 +208,7 @@ static int msm_fb_show(struct drm_device *dev, struct seq_file *m)
 	}
 	mutex_unlock(&dev->mode_config.fb_lock);
 
+	MSM_FUNC_EXIT("");
 	return 0;
 }
 
@@ -190,15 +219,23 @@ static int show_locked(struct seq_file *m, void *arg)
 	int (*show)(struct drm_device *dev, struct seq_file *m) =
 			node->info_ent->data;
 	int ret;
+	bool locked = false;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	ret = mutex_lock_interruptible(&dev->struct_mutex);
 	if (ret)
-		return ret;
+		goto out;
+	locked = true;
 
 	ret = show(dev, m);
 
 	mutex_unlock(&dev->struct_mutex);
+	locked = false;
 
+out:
+	if (locked)
+		mutex_unlock(&dev->struct_mutex);
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -212,31 +249,42 @@ static int late_init_minor(struct drm_minor *minor)
 {
 	int ret;
 
-	if (!minor)
+	MSM_FUNC_ENTER("minor=%p", minor);
+	if (!minor) {
+		MSM_FUNC_EXIT("ret=0");
 		return 0;
+	}
 
 	ret = msm_rd_debugfs_init(minor);
 	if (ret) {
 		DRM_DEV_ERROR(minor->dev->dev, "could not install rd debugfs\n");
-		return ret;
+		goto out;
 	}
 
 	ret = msm_perf_debugfs_init(minor);
 	if (ret) {
 		DRM_DEV_ERROR(minor->dev->dev, "could not install perf debugfs\n");
-		return ret;
+		goto out;
 	}
 
-	return 0;
+	ret = 0;
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 int msm_debugfs_late_init(struct drm_device *dev)
 {
 	int ret;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
 	ret = late_init_minor(dev->primary);
 	if (ret)
-		return ret;
+		goto out;
 	ret = late_init_minor(dev->render);
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -244,6 +292,8 @@ void msm_debugfs_init(struct drm_minor *minor)
 {
 	struct drm_device *dev = minor->dev;
 	struct msm_drm_private *priv = dev->dev_private;
+
+	MSM_FUNC_ENTER("minor=%p", minor);
 
 	drm_debugfs_create_files(msm_debugfs_list,
 				 ARRAY_SIZE(msm_debugfs_list),
@@ -260,6 +310,7 @@ void msm_debugfs_init(struct drm_minor *minor)
 
 	if (priv->kms && priv->kms->funcs->debugfs_init)
 		priv->kms->funcs->debugfs_init(priv->kms, minor);
+
+	MSM_FUNC_EXIT("");
 }
 #endif
-

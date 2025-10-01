@@ -35,17 +35,22 @@ static int msm_iommu_pagetable_unmap(struct msm_mmu *mmu, u64 iova,
 	struct msm_iommu_pagetable *pagetable = to_pagetable(mmu);
 	struct io_pgtable_ops *ops = pagetable->pgtbl_ops;
 	size_t unmapped = 0;
+	size_t remaining = size;
 
+	MSM_FUNC_ENTER("mmu=%p iova=0x%llx size=%zu", mmu,
+		(unsigned long long)iova, size);
 	/* Unmap the block one page at a time */
-	while (size) {
+	while (remaining) {
 		unmapped += ops->unmap(ops, iova, 4096, NULL);
 		iova += 4096;
-		size -= 4096;
+		remaining -= 4096;
 	}
 
 	iommu_flush_iotlb_all(to_msm_iommu(pagetable->parent)->domain);
 
-	return (unmapped == size) ? 0 : -EINVAL;
+	unmapped = (unmapped == size) ? 0 : -EINVAL;
+	MSM_FUNC_EXIT("ret=%d", (int)unmapped);
+	return unmapped;
 }
 
 static int msm_iommu_pagetable_map(struct msm_mmu *mmu, u64 iova,
@@ -57,6 +62,9 @@ static int msm_iommu_pagetable_map(struct msm_mmu *mmu, u64 iova,
 	size_t mapped = 0;
 	u64 addr = iova;
 	unsigned int i;
+
+	MSM_FUNC_ENTER("mmu=%p iova=0x%llx len=%zu", mmu,
+		(unsigned long long)iova, len);
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
 		size_t size = sg->length;
@@ -76,6 +84,7 @@ static int msm_iommu_pagetable_map(struct msm_mmu *mmu, u64 iova,
 		}
 	}
 
+	MSM_FUNC_EXIT("ret=0");
 	return 0;
 }
 
@@ -86,6 +95,7 @@ static void msm_iommu_pagetable_destroy(struct msm_mmu *mmu)
 	struct adreno_smmu_priv *adreno_smmu =
 		dev_get_drvdata(pagetable->parent->dev);
 
+	MSM_FUNC_ENTER("mmu=%p", mmu);
 	/*
 	 * If this is the last attached pagetable for the parent,
 	 * disable TTBR0 in the arm-smmu driver
@@ -95,6 +105,7 @@ static void msm_iommu_pagetable_destroy(struct msm_mmu *mmu)
 
 	free_io_pgtable_ops(pagetable->pgtbl_ops);
 	kfree(pagetable);
+	MSM_FUNC_EXIT("");
 }
 
 int msm_iommu_pagetable_params(struct msm_mmu *mmu,

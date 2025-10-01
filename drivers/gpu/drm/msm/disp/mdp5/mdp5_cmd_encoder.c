@@ -11,7 +11,12 @@
 static struct mdp5_kms *get_kms(struct drm_encoder *encoder)
 {
 	struct msm_drm_private *priv = encoder->dev->dev_private;
-	return to_mdp5_kms(to_mdp_kms(priv->kms));
+	struct mdp5_kms *mdp5_kms;
+
+	MSM_FUNC_ENTER("[CMD] encoder=%p", encoder);
+	mdp5_kms = to_mdp5_kms(to_mdp_kms(priv->kms));
+	MSM_FUNC_EXIT("[CMD] kms=%p", mdp5_kms);
+	return mdp5_kms;
 }
 
 #define VSYNC_CLK_RATE 19200000
@@ -24,16 +29,20 @@ static int pingpong_tearcheck_setup(struct drm_encoder *encoder,
 	long vsync_clk_speed;
 	struct mdp5_hw_mixer *mixer = mdp5_crtc_get_mixer(encoder->crtc);
 	int pp_id = mixer->pp;
+	int vrefresh = drm_mode_vrefresh(mode);
+
+	MSM_FUNC_ENTER("[CMD] tearcheck_setup encoder=%p mode=%dx%d@%d mixer=%d", encoder,
+		mode->hdisplay, mode->vdisplay, vrefresh, pp_id);
 
 	if (IS_ERR_OR_NULL(mdp5_kms->vsync_clk)) {
 		DRM_DEV_ERROR(dev, "vsync_clk is not initialized\n");
 		return -EINVAL;
 	}
 
-	total_lines = mode->vtotal * drm_mode_vrefresh(mode);
+	total_lines = mode->vtotal * vrefresh;
 	if (!total_lines) {
 		DRM_DEV_ERROR(dev, "%s: vtotal(%d) or vrefresh(%d) is 0\n",
-			      __func__, mode->vtotal, drm_mode_vrefresh(mode));
+			      __func__, mode->vtotal, vrefresh);
 		return -EINVAL;
 	}
 
@@ -69,6 +78,8 @@ static int pingpong_tearcheck_setup(struct drm_encoder *encoder,
 			MDP5_PP_SYNC_THRESH_CONTINUE(4));
 	mdp5_write(mdp5_kms, REG_MDP5_PP_AUTOREFRESH_CONFIG(pp_id), 0x0);
 
+	MSM_FUNC_EXIT("[CMD] tearcheck_setup pp=%d vclks_line=%u cfg=0x%08x", pp_id,
+		vclks_line, cfg);
 	return 0;
 }
 
@@ -78,6 +89,7 @@ static int pingpong_tearcheck_enable(struct drm_encoder *encoder)
 	struct mdp5_hw_mixer *mixer = mdp5_crtc_get_mixer(encoder->crtc);
 	int pp_id = mixer->pp;
 	int ret;
+	MSM_FUNC_ENTER("[CMD] tearcheck_enable pp=%d", pp_id);
 
 	ret = clk_set_rate(mdp5_kms->vsync_clk,
 		clk_round_rate(mdp5_kms->vsync_clk, VSYNC_CLK_RATE));
@@ -94,6 +106,7 @@ static int pingpong_tearcheck_enable(struct drm_encoder *encoder)
 	}
 
 	mdp5_write(mdp5_kms, REG_MDP5_PP_TEAR_CHECK_EN(pp_id), 1);
+	MSM_FUNC_EXIT("[CMD] tearcheck_enable done pp=%d", pp_id);
 
 	return 0;
 }
@@ -106,6 +119,7 @@ static void pingpong_tearcheck_disable(struct drm_encoder *encoder)
 
 	mdp5_write(mdp5_kms, REG_MDP5_PP_TEAR_CHECK_EN(pp_id), 0);
 	clk_disable_unprepare(mdp5_kms->vsync_clk);
+	MSM_FUNC_EXIT("[CMD] tearcheck_disable pp=%d", pp_id);
 }
 
 void mdp5_cmd_encoder_mode_set(struct drm_encoder *encoder,
@@ -115,8 +129,11 @@ void mdp5_cmd_encoder_mode_set(struct drm_encoder *encoder,
 	mode = adjusted_mode;
 
 	DBG("set mode: " DRM_MODE_FMT, DRM_MODE_ARG(mode));
+	MSM_FUNC_ENTER("[CMD] mode_set encoder=%p mode=%dx%d@%d", encoder,
+		mode->hdisplay, mode->vdisplay, drm_mode_vrefresh(mode));
 	pingpong_tearcheck_setup(encoder, mode);
 	mdp5_crtc_set_pipeline(encoder->crtc);
+	MSM_FUNC_EXIT("[CMD] mode_set complete encoder=%p", encoder);
 }
 
 void mdp5_cmd_encoder_disable(struct drm_encoder *encoder)
@@ -125,6 +142,10 @@ void mdp5_cmd_encoder_disable(struct drm_encoder *encoder)
 	struct mdp5_ctl *ctl = mdp5_cmd_enc->ctl;
 	struct mdp5_interface *intf = mdp5_cmd_enc->intf;
 	struct mdp5_pipeline *pipeline = mdp5_crtc_get_pipeline(encoder->crtc);
+	u32 flush_mask = mdp_ctl_flush_mask_encoder(intf);
+
+	MSM_FUNC_ENTER("[CMD] disable encoder=%p enabled=%d", encoder,
+		mdp5_cmd_enc->enabled);
 
 	if (WARN_ON(!mdp5_cmd_enc->enabled))
 		return;
@@ -132,9 +153,10 @@ void mdp5_cmd_encoder_disable(struct drm_encoder *encoder)
 	pingpong_tearcheck_disable(encoder);
 
 	mdp5_ctl_set_encoder_state(ctl, pipeline, false);
-	mdp5_ctl_commit(ctl, pipeline, mdp_ctl_flush_mask_encoder(intf), true);
+	mdp5_ctl_commit(ctl, pipeline, flush_mask, true);
 
 	mdp5_cmd_enc->enabled = false;
+	MSM_FUNC_EXIT("[CMD] disable complete encoder=%p", encoder);
 }
 
 void mdp5_cmd_encoder_enable(struct drm_encoder *encoder)
@@ -143,6 +165,10 @@ void mdp5_cmd_encoder_enable(struct drm_encoder *encoder)
 	struct mdp5_ctl *ctl = mdp5_cmd_enc->ctl;
 	struct mdp5_interface *intf = mdp5_cmd_enc->intf;
 	struct mdp5_pipeline *pipeline = mdp5_crtc_get_pipeline(encoder->crtc);
+	u32 flush_mask = mdp_ctl_flush_mask_encoder(intf);
+
+	MSM_FUNC_ENTER("[CMD] enable encoder=%p enabled=%d", encoder,
+		mdp5_cmd_enc->enabled);
 
 	if (WARN_ON(mdp5_cmd_enc->enabled))
 		return;
@@ -150,11 +176,12 @@ void mdp5_cmd_encoder_enable(struct drm_encoder *encoder)
 	if (pingpong_tearcheck_enable(encoder))
 		return;
 
-	mdp5_ctl_commit(ctl, pipeline, mdp_ctl_flush_mask_encoder(intf), true);
+	mdp5_ctl_commit(ctl, pipeline, flush_mask, true);
 
 	mdp5_ctl_set_encoder_state(ctl, pipeline, true);
 
 	mdp5_cmd_enc->enabled = true;
+	MSM_FUNC_EXIT("[CMD] enable complete encoder=%p", encoder);
 }
 
 int mdp5_cmd_encoder_set_split_display(struct drm_encoder *encoder,
@@ -165,6 +192,9 @@ int mdp5_cmd_encoder_set_split_display(struct drm_encoder *encoder,
 	struct device *dev;
 	int intf_num;
 	u32 data = 0;
+
+	MSM_FUNC_ENTER("[CMD] set_split_display master=%p slave=%p", encoder,
+		slave_encoder);
 
 	if (!encoder || !slave_encoder)
 		return -EINVAL;
@@ -195,6 +225,8 @@ int mdp5_cmd_encoder_set_split_display(struct drm_encoder *encoder,
 		   MDP5_SPLIT_DPL_LOWER_SMART_PANEL);
 	mdp5_write(mdp5_kms, REG_MDP5_SPLIT_DPL_EN, 1);
 	pm_runtime_put_sync(dev);
+	MSM_FUNC_EXIT("[CMD] set_split_display configured intf_num=%d data=0x%08x",
+		intf_num, data);
 
 	return 0;
 }

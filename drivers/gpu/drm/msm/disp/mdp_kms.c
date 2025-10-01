@@ -23,6 +23,7 @@ static void update_irq(struct mdp_kms *mdp_kms)
 	struct mdp_irq *irq;
 	uint32_t irqmask = mdp_kms->vblank_mask;
 
+	MSM_FUNC_ENTER("mdp_kms=%p", mdp_kms);
 	assert_spin_locked(&list_lock);
 
 	list_for_each_entry(irq, &mdp_kms->irq_list, node)
@@ -30,6 +31,7 @@ static void update_irq(struct mdp_kms *mdp_kms)
 
 	mdp_kms->funcs->set_irqmask(mdp_kms, irqmask, mdp_kms->cur_irq_mask);
 	mdp_kms->cur_irq_mask = irqmask;
+	MSM_FUNC_EXIT("irqmask=0x%08x", irqmask);
 }
 
 /* if an mdp_irq's irqmask has changed, such as when mdp5 crtc<->encoder
@@ -38,15 +40,20 @@ static void update_irq(struct mdp_kms *mdp_kms)
 void mdp_irq_update(struct mdp_kms *mdp_kms)
 {
 	unsigned long flags;
+
+	MSM_FUNC_ENTER("mdp_kms=%p", mdp_kms);
 	spin_lock_irqsave(&list_lock, flags);
 	update_irq(mdp_kms);
 	spin_unlock_irqrestore(&list_lock, flags);
+	MSM_FUNC_EXIT("");
 }
 
 void mdp_dispatch_irqs(struct mdp_kms *mdp_kms, uint32_t status)
 {
 	struct mdp_irq *handler, *n;
 	unsigned long flags;
+
+	MSM_FUNC_ENTER("mdp_kms=%p status=0x%08x", mdp_kms, status);
 
 	spin_lock_irqsave(&list_lock, flags);
 	mdp_kms->in_irq = true;
@@ -60,13 +67,14 @@ void mdp_dispatch_irqs(struct mdp_kms *mdp_kms, uint32_t status)
 	mdp_kms->in_irq = false;
 	update_irq(mdp_kms);
 	spin_unlock_irqrestore(&list_lock, flags);
-
+	MSM_FUNC_EXIT("");
 }
 
 void mdp_update_vblank_mask(struct mdp_kms *mdp_kms, uint32_t mask, bool enable)
 {
 	unsigned long flags;
 
+	MSM_FUNC_ENTER("mdp_kms=%p mask=0x%08x enable=%d", mdp_kms, mask, enable);
 	spin_lock_irqsave(&list_lock, flags);
 	if (enable)
 		mdp_kms->vblank_mask |= mask;
@@ -74,14 +82,18 @@ void mdp_update_vblank_mask(struct mdp_kms *mdp_kms, uint32_t mask, bool enable)
 		mdp_kms->vblank_mask &= ~mask;
 	update_irq(mdp_kms);
 	spin_unlock_irqrestore(&list_lock, flags);
+	MSM_FUNC_EXIT("vblank_mask=0x%08x", mdp_kms->vblank_mask);
 }
 
 static void wait_irq(struct mdp_irq *irq, uint32_t irqstatus)
 {
 	struct mdp_irq_wait *wait =
 			container_of(irq, struct mdp_irq_wait, irq);
+
+	MSM_FUNC_ENTER("irqstatus=0x%08x", irqstatus);
 	wait->count--;
 	wake_up_all(&wait_event);
+	MSM_FUNC_EXIT("count=%d", wait->count);
 }
 
 void mdp_irq_wait(struct mdp_kms *mdp_kms, uint32_t irqmask)
@@ -93,10 +105,14 @@ void mdp_irq_wait(struct mdp_kms *mdp_kms, uint32_t irqmask)
 		},
 		.count = 1,
 	};
+	long timeout;
+
+	MSM_FUNC_ENTER("mdp_kms=%p irqmask=0x%08x", mdp_kms, irqmask);
 	mdp_irq_register(mdp_kms, &wait.irq);
-	wait_event_timeout(wait_event, (wait.count <= 0),
+	timeout = wait_event_timeout(wait_event, (wait.count <= 0),
 			msecs_to_jiffies(100));
 	mdp_irq_unregister(mdp_kms, &wait.irq);
+	MSM_FUNC_EXIT("count=%d timeout=%ld", wait.count, timeout);
 }
 
 void mdp_irq_register(struct mdp_kms *mdp_kms, struct mdp_irq *irq)
@@ -104,6 +120,7 @@ void mdp_irq_register(struct mdp_kms *mdp_kms, struct mdp_irq *irq)
 	unsigned long flags;
 	bool needs_update = false;
 
+	MSM_FUNC_ENTER("mdp_kms=%p irqmask=0x%08x", mdp_kms, irq->irqmask);
 	spin_lock_irqsave(&list_lock, flags);
 
 	if (!irq->registered) {
@@ -116,6 +133,7 @@ void mdp_irq_register(struct mdp_kms *mdp_kms, struct mdp_irq *irq)
 
 	if (needs_update)
 		mdp_irq_update(mdp_kms);
+	MSM_FUNC_EXIT("registered=%d", irq->registered);
 }
 
 void mdp_irq_unregister(struct mdp_kms *mdp_kms, struct mdp_irq *irq)
@@ -123,6 +141,7 @@ void mdp_irq_unregister(struct mdp_kms *mdp_kms, struct mdp_irq *irq)
 	unsigned long flags;
 	bool needs_update = false;
 
+	MSM_FUNC_ENTER("mdp_kms=%p irqmask=0x%08x", mdp_kms, irq->irqmask);
 	spin_lock_irqsave(&list_lock, flags);
 
 	if (irq->registered) {
@@ -135,4 +154,5 @@ void mdp_irq_unregister(struct mdp_kms *mdp_kms, struct mdp_irq *irq)
 
 	if (needs_update)
 		mdp_irq_update(mdp_kms);
+	MSM_FUNC_EXIT("registered=%d", irq->registered);
 }

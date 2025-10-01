@@ -25,11 +25,13 @@ static int enable_pwrrail(struct msm_gpu *gpu)
 	struct drm_device *dev = gpu->dev;
 	int ret = 0;
 
+	MSM_FUNC_ENTER("gpu=%p", gpu);
+
 	if (gpu->gpu_reg) {
 		ret = regulator_enable(gpu->gpu_reg);
 		if (ret) {
 			DRM_DEV_ERROR(dev->dev, "failed to enable 'gpu_reg': %d\n", ret);
-			return ret;
+			goto out;
 		}
 	}
 
@@ -37,24 +39,31 @@ static int enable_pwrrail(struct msm_gpu *gpu)
 		ret = regulator_enable(gpu->gpu_cx);
 		if (ret) {
 			DRM_DEV_ERROR(dev->dev, "failed to enable 'gpu_cx': %d\n", ret);
-			return ret;
+			goto out;
 		}
 	}
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int disable_pwrrail(struct msm_gpu *gpu)
 {
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 	if (gpu->gpu_cx)
 		regulator_disable(gpu->gpu_cx);
 	if (gpu->gpu_reg)
 		regulator_disable(gpu->gpu_reg);
+	MSM_FUNC_EXIT("ret=%d", 0);
 	return 0;
 }
 
 static int enable_clk(struct msm_gpu *gpu)
 {
+	int ret;
+
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 	if (gpu->core_clk && gpu->fast_rate)
 		clk_set_rate(gpu->core_clk, gpu->fast_rate);
 
@@ -62,11 +71,14 @@ static int enable_clk(struct msm_gpu *gpu)
 	if (gpu->rbbmtimer_clk)
 		clk_set_rate(gpu->rbbmtimer_clk, 19200000);
 
-	return clk_bulk_prepare_enable(gpu->nr_clocks, gpu->grp_clks);
+	ret = clk_bulk_prepare_enable(gpu->nr_clocks, gpu->grp_clks);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int disable_clk(struct msm_gpu *gpu)
 {
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 	clk_bulk_disable_unprepare(gpu->nr_clocks, gpu->grp_clks);
 
 	/*
@@ -80,17 +92,25 @@ static int disable_clk(struct msm_gpu *gpu)
 	if (gpu->rbbmtimer_clk)
 		clk_set_rate(gpu->rbbmtimer_clk, 0);
 
+	MSM_FUNC_EXIT("ret=%d", 0);
 	return 0;
 }
 
 static int enable_axi(struct msm_gpu *gpu)
 {
-	return clk_prepare_enable(gpu->ebi1_clk);
+	int ret;
+
+	MSM_FUNC_ENTER("gpu=%p", gpu);
+	ret = clk_prepare_enable(gpu->ebi1_clk);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int disable_axi(struct msm_gpu *gpu)
 {
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 	clk_disable_unprepare(gpu->ebi1_clk);
+	MSM_FUNC_EXIT("ret=%d", 0);
 	return 0;
 }
 
@@ -98,31 +118,39 @@ int msm_gpu_pm_resume(struct msm_gpu *gpu)
 {
 	int ret;
 
+	MSM_FUNC_ENTER("gpu=%p", gpu);
+
 	DBG("%s", gpu->name);
 	trace_msm_gpu_resume(0);
 
 	ret = enable_pwrrail(gpu);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = enable_clk(gpu);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = enable_axi(gpu);
 	if (ret)
-		return ret;
+		goto out;
 
 	msm_devfreq_resume(gpu);
 
 	gpu->needs_hw_init = true;
 
-	return 0;
+	ret = 0;
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 int msm_gpu_pm_suspend(struct msm_gpu *gpu)
 {
 	int ret;
+
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 
 	DBG("%s", gpu->name);
 	trace_msm_gpu_suspend(0);
@@ -131,29 +159,37 @@ int msm_gpu_pm_suspend(struct msm_gpu *gpu)
 
 	ret = disable_axi(gpu);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = disable_clk(gpu);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = disable_pwrrail(gpu);
 	if (ret)
-		return ret;
+		goto out;
 
 	gpu->suspend_count++;
 
-	return 0;
+	ret = 0;
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 int msm_gpu_hw_init(struct msm_gpu *gpu)
 {
 	int ret;
 
+	MSM_FUNC_ENTER("gpu=%p", gpu);
+
 	WARN_ON(!mutex_is_locked(&gpu->dev->struct_mutex));
 
-	if (!gpu->needs_hw_init)
+	if (!gpu->needs_hw_init) {
+		MSM_FUNC_EXIT("ret=%d", 0);
 		return 0;
+	}
 
 	disable_irq(gpu->irq);
 	ret = gpu->funcs->hw_init(gpu);
@@ -161,6 +197,7 @@ int msm_gpu_hw_init(struct msm_gpu *gpu)
 		gpu->needs_hw_init = false;
 	enable_irq(gpu->irq);
 
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -584,6 +621,8 @@ void msm_gpu_perfcntr_start(struct msm_gpu *gpu)
 {
 	unsigned long flags;
 
+	MSM_FUNC_ENTER("gpu=%p", gpu);
+
 	pm_runtime_get_sync(&gpu->pdev->dev);
 
 	spin_lock_irqsave(&gpu->perf_lock, flags);
@@ -594,12 +633,15 @@ void msm_gpu_perfcntr_start(struct msm_gpu *gpu)
 	gpu->perfcntr_active = true;
 	update_hw_cntrs(gpu, 0, NULL);
 	spin_unlock_irqrestore(&gpu->perf_lock, flags);
+	MSM_FUNC_EXIT("");
 }
 
 void msm_gpu_perfcntr_stop(struct msm_gpu *gpu)
 {
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 	gpu->perfcntr_active = false;
 	pm_runtime_put_sync(&gpu->pdev->dev);
+	MSM_FUNC_EXIT("");
 }
 
 /* returns -errno or # of cntrs sampled */
@@ -608,6 +650,8 @@ int msm_gpu_perfcntr_sample(struct msm_gpu *gpu, uint32_t *activetime,
 {
 	unsigned long flags;
 	int ret;
+
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 
 	spin_lock_irqsave(&gpu->perf_lock, flags);
 
@@ -626,6 +670,7 @@ int msm_gpu_perfcntr_sample(struct msm_gpu *gpu, uint32_t *activetime,
 out:
 	spin_unlock_irqrestore(&gpu->perf_lock, flags);
 
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -782,8 +827,11 @@ static int get_clocks(struct platform_device *pdev, struct msm_gpu *gpu)
 {
 	int ret = devm_clk_bulk_get_all(&pdev->dev, &gpu->grp_clks);
 
+	MSM_FUNC_ENTER("gpu=%p", gpu);
+
 	if (ret < 1) {
 		gpu->nr_clocks = 0;
+		MSM_FUNC_EXIT("ret=%d", ret);
 		return ret;
 	}
 
@@ -795,6 +843,7 @@ static int get_clocks(struct platform_device *pdev, struct msm_gpu *gpu)
 	gpu->rbbmtimer_clk = msm_clk_bulk_get_clock(gpu->grp_clks,
 		gpu->nr_clocks, "rbbmtimer");
 
+	MSM_FUNC_EXIT("ret=%d", 0);
 	return 0;
 }
 
@@ -803,8 +852,10 @@ struct msm_gem_address_space *
 msm_gpu_create_private_address_space(struct msm_gpu *gpu, struct task_struct *task)
 {
 	struct msm_gem_address_space *aspace = NULL;
+
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 	if (!gpu)
-		return NULL;
+		goto out;
 
 	/*
 	 * If the target doesn't support private address spaces then return
@@ -819,6 +870,10 @@ msm_gpu_create_private_address_space(struct msm_gpu *gpu, struct task_struct *ta
 	if (IS_ERR_OR_NULL(aspace))
 		aspace = msm_gem_address_space_get(gpu->aspace);
 
+	goto out;
+
+out:
+	MSM_FUNC_EXIT("aspace=%p", aspace);
 	return aspace;
 }
 
@@ -829,6 +884,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	int i, ret, nr_rings = config->nr_rings;
 	void *memptrs;
 	uint64_t memptrs_iova;
+
+	MSM_FUNC_ENTER("gpu=%p", gpu);
 
 	if (WARN_ON(gpu->num_perfcntrs > ARRAY_SIZE(gpu->last_cntrs)))
 		gpu->num_perfcntrs = ARRAY_SIZE(gpu->last_cntrs);
@@ -949,8 +1006,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	}
 
 	gpu->nr_rings = nr_rings;
-
-	return 0;
+	ret = 0;
+	goto out;
 
 fail:
 	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++)  {
@@ -961,6 +1018,9 @@ fail:
 	msm_gem_kernel_put(gpu->memptrs_bo, gpu->aspace);
 
 	platform_set_drvdata(pdev, NULL);
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 

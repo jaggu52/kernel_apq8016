@@ -46,8 +46,9 @@ static inline struct msm_dsi *dsi_mgr_get_other_dsi(int id)
 static int dsi_mgr_parse_of(struct device_node *np, int id)
 {
 	struct msm_dsi_manager *msm_dsim = &msm_dsim_glb;
+	int ret = 0;
 
-	DSI_MGR_DBG("Parsing DSI node %d", id);
+	MSM_FUNC_ENTER("[DSI-MGR] parse_of id=%d", id);
 
 	/* We assume 2 dsi nodes have the same information of bonded dsi and
 	 * sync-mode, and only one node specifies master in case of bonded mode.
@@ -65,7 +66,8 @@ static int dsi_mgr_parse_of(struct device_node *np, int id)
 					np, "qcom,sync-dual-dsi");
 	}
 
-	return 0;
+	MSM_FUNC_EXIT("[DSI-MGR] parse_of ret=%d", ret);
+	return ret;
 }
 
 static int dsi_mgr_setup_components(int id)
@@ -76,15 +78,19 @@ static int dsi_mgr_setup_components(int id)
 	struct msm_dsi *clk_slave_dsi = dsi_mgr_get_dsi(DSI_CLOCK_SLAVE);
 	int ret;
 
+	MSM_FUNC_ENTER("[DSI-MGR] setup_components id=%d", id);
+
 	if (!IS_BONDED_DSI()) {
 		ret = msm_dsi_host_register(msm_dsi->host, true);
 		if (ret)
-			return ret;
+			goto out;
 
 		msm_dsi_phy_set_usecase(msm_dsi->phy, MSM_DSI_PHY_STANDALONE);
 		ret = msm_dsi_host_set_src_pll(msm_dsi->host, msm_dsi->phy);
+		goto out;
 	} else if (!other_dsi) {
 		ret = 0;
+		goto out;
 	} else {
 		struct msm_dsi *master_link_dsi = IS_MASTER_DSI_LINK(id) ?
 							msm_dsi : other_dsi;
@@ -99,10 +105,10 @@ static int dsi_mgr_setup_components(int id)
 		 */
 		ret = msm_dsi_host_register(slave_link_dsi->host, false);
 		if (ret)
-			return ret;
+			goto out;
 		ret = msm_dsi_host_register(master_link_dsi->host, true);
 		if (ret)
-			return ret;
+			goto out;
 
 		/* PLL0 is to drive both 2 DSI link clocks in bonded DSI mode. */
 		msm_dsi_phy_set_usecase(clk_master_dsi->phy,
@@ -111,10 +117,12 @@ static int dsi_mgr_setup_components(int id)
 					MSM_DSI_PHY_SLAVE);
 		ret = msm_dsi_host_set_src_pll(msm_dsi->host, clk_master_dsi->phy);
 		if (ret)
-			return ret;
+			goto out;
 		ret = msm_dsi_host_set_src_pll(other_dsi->host, clk_master_dsi->phy);
 	}
 
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] setup_components ret=%d", ret);
 	return ret;
 }
 
@@ -139,7 +147,9 @@ dsi_mgr_phy_enable(int id,
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
 	struct msm_dsi *mdsi = dsi_mgr_get_dsi(DSI_CLOCK_MASTER);
 	struct msm_dsi *sdsi = dsi_mgr_get_dsi(DSI_CLOCK_SLAVE);
-	int ret;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[DSI-MGR] phy_enable id=%d", id);
 
 	/* In case of bonded DSI, some registers in PHY1 have been programmed
 	 * during PLL0 clock's set_rate. The PHY1 reset called by host1 here
@@ -154,24 +164,27 @@ dsi_mgr_phy_enable(int id,
 			ret = enable_phy(mdsi,
 					 &shared_timings[DSI_CLOCK_MASTER]);
 			if (ret)
-				return ret;
+				goto out;
 			ret = enable_phy(sdsi,
 					 &shared_timings[DSI_CLOCK_SLAVE]);
 			if (ret) {
 				msm_dsi_phy_disable(mdsi->phy);
-				return ret;
+				goto out;
 			}
 		}
 	} else {
 		msm_dsi_host_reset_phy(msm_dsi->host);
 		ret = enable_phy(msm_dsi, &shared_timings[id]);
 		if (ret)
-			return ret;
+			goto out;
 	}
 
 	msm_dsi->phy_enabled = true;
+	ret = 0;
 
-	return 0;
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] phy_enable id=%d ret=%d", id, ret);
+	return ret;
 }
 
 static void dsi_mgr_phy_disable(int id)
@@ -179,6 +192,8 @@ static void dsi_mgr_phy_disable(int id)
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
 	struct msm_dsi *mdsi = dsi_mgr_get_dsi(DSI_CLOCK_MASTER);
 	struct msm_dsi *sdsi = dsi_mgr_get_dsi(DSI_CLOCK_SLAVE);
+
+	MSM_FUNC_ENTER("[DSI-MGR] phy_disable id=%d", id);
 
 	/* disable DSI phy
 	 * In bonded dsi configuration, the phy should be disabled for the
@@ -193,6 +208,8 @@ static void dsi_mgr_phy_disable(int id)
 	} else {
 		msm_dsi_phy_disable(msm_dsi->phy);
 	}
+
+	MSM_FUNC_EXIT("[DSI-MGR] phy_disable id=%d", id);
 }
 
 struct dsi_connector {
@@ -228,6 +245,9 @@ static int msm_dsi_manager_panel_init(struct drm_connector *conn, u8 id)
 	struct msm_dsi *other_dsi = dsi_mgr_get_other_dsi(id);
 	struct msm_dsi *master_dsi, *slave_dsi;
 	struct drm_panel *panel;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[DSI-MGR] panel_init id=%u", id);
 
 	if (IS_BONDED_DSI() && !IS_MASTER_DSI_LINK(id)) {
 		master_dsi = other_dsi;
@@ -246,7 +266,8 @@ static int msm_dsi_manager_panel_init(struct drm_connector *conn, u8 id)
 	if (IS_ERR(panel)) {
 		DRM_ERROR("Could not find panel for %u (%ld)\n", msm_dsi->id,
 			  PTR_ERR(panel));
-		return PTR_ERR(panel);
+		ret = PTR_ERR(panel);
+		goto out;
 	}
 
 	if (!panel || !IS_BONDED_DSI())
@@ -267,7 +288,8 @@ static int msm_dsi_manager_panel_init(struct drm_connector *conn, u8 id)
 
 out:
 	msm_dsi->panel = panel;
-	return 0;
+	MSM_FUNC_EXIT("[DSI-MGR] panel_init id=%u ret=%d", id, ret);
+	return ret;
 }
 
 static enum drm_connector_status dsi_mgr_connector_detect(
@@ -352,15 +374,15 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
 	struct drm_panel *panel = msm_dsi->panel;
 	struct msm_dsi_phy_shared_timings phy_shared_timings[DSI_MAX];
 	bool is_bonded_dsi = IS_BONDED_DSI();
-	int ret;
+	int ret = 0;
 
-	DBG("id=%d", id);
+	MSM_FUNC_ENTER("[DSI-MGR] bridge_pre_enable id=%d", id);
 	if (!msm_dsi_device_connected(msm_dsi))
-		return;
+		goto out;
 
 	/* Do nothing with the host if it is slave-DSI in case of bonded DSI */
 	if (is_bonded_dsi && !IS_MASTER_DSI_LINK(id))
-		return;
+		goto out;
 
 	ret = dsi_mgr_phy_enable(id, phy_shared_timings);
 	if (ret)
@@ -416,7 +438,8 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
 		}
 	}
 
-	return;
+	ret = 0;
+	goto out;
 
 host1_en_fail:
 	msm_dsi_host_disable(host);
@@ -435,6 +458,9 @@ host1_on_fail:
 host_on_fail:
 	dsi_mgr_phy_disable(id);
 phy_en_fail:
+	goto out;
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] bridge_pre_enable id=%d ret=%d", id, ret);
 	return;
 }
 
@@ -457,15 +483,15 @@ static void dsi_mgr_bridge_enable(struct drm_bridge *bridge)
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
 	struct drm_panel *panel = msm_dsi->panel;
 	bool is_bonded_dsi = IS_BONDED_DSI();
-	int ret;
+	int ret = 0;
 
-	DBG("id=%d", id);
+	MSM_FUNC_ENTER("[DSI-MGR] bridge_enable id=%d", id);
 	if (!msm_dsi_device_connected(msm_dsi))
-		return;
+		goto out;
 
 	/* Do nothing with the host if it is slave-DSI in case of bonded DSI */
 	if (is_bonded_dsi && !IS_MASTER_DSI_LINK(id))
-		return;
+		goto out;
 
 	if (panel) {
 		ret = drm_panel_enable(panel);
@@ -474,6 +500,9 @@ static void dsi_mgr_bridge_enable(struct drm_bridge *bridge)
 									ret);
 		}
 	}
+
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] bridge_enable id=%d ret=%d", id, ret);
 }
 
 static void dsi_mgr_bridge_disable(struct drm_bridge *bridge)
@@ -482,15 +511,15 @@ static void dsi_mgr_bridge_disable(struct drm_bridge *bridge)
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
 	struct drm_panel *panel = msm_dsi->panel;
 	bool is_bonded_dsi = IS_BONDED_DSI();
-	int ret;
+	int ret = 0;
 
-	DBG("id=%d", id);
+	MSM_FUNC_ENTER("[DSI-MGR] bridge_disable id=%d", id);
 	if (!msm_dsi_device_connected(msm_dsi))
-		return;
+		goto out;
 
 	/* Do nothing with the host if it is slave-DSI in case of bonded DSI */
 	if (is_bonded_dsi && !IS_MASTER_DSI_LINK(id))
-		return;
+		goto out;
 
 	if (panel) {
 		ret = drm_panel_disable(panel);
@@ -498,6 +527,9 @@ static void dsi_mgr_bridge_disable(struct drm_bridge *bridge)
 			pr_err("%s: Panel %d OFF failed, %d\n", __func__, id,
 									ret);
 	}
+
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] bridge_disable id=%d ret=%d", id, ret);
 }
 
 static void dsi_mgr_bridge_post_disable(struct drm_bridge *bridge)
@@ -508,12 +540,12 @@ static void dsi_mgr_bridge_post_disable(struct drm_bridge *bridge)
 	struct mipi_dsi_host *host = msm_dsi->host;
 	struct drm_panel *panel = msm_dsi->panel;
 	bool is_bonded_dsi = IS_BONDED_DSI();
-	int ret;
+	int ret = 0;
 
-	DBG("id=%d", id);
+	MSM_FUNC_ENTER("[DSI-MGR] bridge_post_disable id=%d", id);
 
 	if (!msm_dsi_device_connected(msm_dsi))
-		return;
+		goto out;
 
 	/*
 	 * Do nothing with the host if it is slave-DSI in case of bonded DSI.
@@ -560,6 +592,8 @@ static void dsi_mgr_bridge_post_disable(struct drm_bridge *bridge)
 
 disable_phy:
 	dsi_mgr_phy_disable(id);
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] bridge_post_disable id=%d ret=%d", id, ret);
 }
 
 static void dsi_mgr_bridge_mode_set(struct drm_bridge *bridge,
@@ -611,11 +645,16 @@ struct drm_connector *msm_dsi_manager_connector_init(u8 id)
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
 	struct drm_connector *connector = NULL;
 	struct dsi_connector *dsi_connector;
-	int ret;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[DSI-MGR] connector_init id=%u", id);
 
 	dsi_connector = kzalloc(sizeof(*dsi_connector), GFP_KERNEL);
-	if (!dsi_connector)
-		return ERR_PTR(-ENOMEM);
+	if (!dsi_connector) {
+		ret = -ENOMEM;
+		connector = ERR_PTR(ret);
+		goto out;
+	}
 
 	dsi_connector->id = id;
 
@@ -623,8 +662,10 @@ struct drm_connector *msm_dsi_manager_connector_init(u8 id)
 
 	ret = drm_connector_init(msm_dsi->dev, connector,
 			&dsi_mgr_connector_funcs, DRM_MODE_CONNECTOR_DSI);
-	if (ret)
-		return ERR_PTR(ret);
+	if (ret) {
+		connector = ERR_PTR(ret);
+		goto out;
+	}
 
 	drm_connector_helper_add(connector, &dsi_mgr_conn_helper_funcs);
 
@@ -645,11 +686,17 @@ struct drm_connector *msm_dsi_manager_connector_init(u8 id)
 		goto fail;
 	}
 
+	MSM_FUNC_EXIT("[DSI-MGR] connector_init id=%u ret=%d connector=%p", id, ret,
+		     connector);
 	return connector;
 
 fail:
 	connector->funcs->destroy(msm_dsi->connector);
-	return ERR_PTR(ret);
+	connector = ERR_PTR(ret);
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] connector_init id=%u ret=%d connector=%p", id, ret,
+		     connector);
+	return connector;
 }
 
 bool msm_dsi_manager_validate_current_config(u8 id)
@@ -676,7 +723,9 @@ struct drm_bridge *msm_dsi_manager_bridge_init(u8 id)
 	struct drm_bridge *bridge = NULL;
 	struct dsi_bridge *dsi_bridge;
 	struct drm_encoder *encoder;
-	int ret;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[DSI-MGR] bridge_init id=%u", id);
 
 	dsi_bridge = devm_kzalloc(msm_dsi->dev->dev,
 				sizeof(*dsi_bridge), GFP_KERNEL);
@@ -696,13 +745,16 @@ struct drm_bridge *msm_dsi_manager_bridge_init(u8 id)
 	if (ret)
 		goto fail;
 
+	MSM_FUNC_EXIT("[DSI-MGR] bridge_init id=%u ret=%d bridge=%p", id, ret, bridge);
 	return bridge;
 
 fail:
 	if (bridge)
 		msm_dsi_manager_bridge_destroy(bridge);
 
-	return ERR_PTR(ret);
+	bridge = ERR_PTR(ret);
+	MSM_FUNC_EXIT("[DSI-MGR] bridge_init id=%u ret=%d bridge=%p", id, ret, bridge);
+	return bridge;
 }
 
 struct drm_connector *msm_dsi_manager_ext_bridge_init(u8 id)
@@ -712,6 +764,9 @@ struct drm_connector *msm_dsi_manager_ext_bridge_init(u8 id)
 	struct drm_encoder *encoder;
 	struct drm_bridge *int_bridge, *ext_bridge;
 	struct drm_connector *connector;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[DSI-MGR] ext_bridge_init id=%u", id);
 
 	int_bridge = msm_dsi->bridge;
 	ext_bridge = msm_dsi->external_bridge =
@@ -729,10 +784,15 @@ struct drm_connector *msm_dsi_manager_ext_bridge_init(u8 id)
 	if (IS_ERR(connector)) {
 		DRM_DEV_ERROR(dev->dev, "drm_bridge_connector_init failed: %ld\n",
 			      PTR_ERR(connector));
-		return ERR_PTR(-ENODEV);
+		ret = -ENODEV;
+		connector = ERR_PTR(ret);
+		goto out;
 	}
 
 	drm_connector_attach_encoder(connector, msm_dsi->encoder);
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] ext_bridge_init id=%u ret=%d connector=%p", id, ret,
+		     connector);
 	return connector;
 }
 
@@ -747,10 +807,12 @@ int msm_dsi_manager_cmd_xfer(int id, const struct mipi_dsi_msg *msg)
 	struct mipi_dsi_host *host = msm_dsi->host;
 	bool is_read = (msg->rx_buf && msg->rx_len);
 	bool need_sync = (IS_SYNC_NEEDED() && !is_read);
-	int ret;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[DSI-MGR] cmd_xfer id=%d", id);
 
 	if (!msg->tx_buf || !msg->tx_len)
-		return 0;
+		goto out;
 
 	/* In bonded master case, panel requires the same commands sent to
 	 * both DSI links. Host issues the command trigger to both links
@@ -758,14 +820,17 @@ int msm_dsi_manager_cmd_xfer(int id, const struct mipi_dsi_msg *msg)
 	 * before or after DSI_0 cmd transfer.
 	 */
 	if (need_sync && (id == DSI_0))
-		return is_read ? msg->rx_len : msg->tx_len;
+		{
+			ret = is_read ? msg->rx_len : msg->tx_len;
+			goto out;
+		}
 
 	if (need_sync && msm_dsi0) {
 		ret = msm_dsi_host_xfer_prepare(msm_dsi0->host, msg);
 		if (ret) {
 			pr_err("%s: failed to prepare non-trigger host, %d\n",
 				__func__, ret);
-			return ret;
+			goto out;
 		}
 	}
 	ret = msm_dsi_host_xfer_prepare(host, msg);
@@ -783,6 +848,8 @@ restore_host0:
 	if (need_sync && msm_dsi0)
 		msm_dsi_host_xfer_restore(msm_dsi0->host, msg);
 
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] cmd_xfer id=%d ret=%d", id, ret);
 	return ret;
 }
 
@@ -791,32 +858,44 @@ bool msm_dsi_manager_cmd_xfer_trigger(int id, u32 dma_base, u32 len)
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
 	struct msm_dsi *msm_dsi0 = dsi_mgr_get_dsi(DSI_0);
 	struct mipi_dsi_host *host = msm_dsi->host;
+	bool ret = true;
 
-	if (IS_SYNC_NEEDED() && (id == DSI_0))
-		return false;
+	MSM_FUNC_ENTER("[DSI-MGR] cmd_xfer_trigger id=%d", id);
+
+	if (IS_SYNC_NEEDED() && (id == DSI_0)) {
+		ret = false;
+		goto out;
+	}
 
 	if (IS_SYNC_NEEDED() && msm_dsi0)
 		msm_dsi_host_cmd_xfer_commit(msm_dsi0->host, dma_base, len);
 
 	msm_dsi_host_cmd_xfer_commit(host, dma_base, len);
 
-	return true;
+	ret = true;
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] cmd_xfer_trigger id=%d ret=%d", id, ret);
+	return ret;
 }
 
 int msm_dsi_manager_register(struct msm_dsi *msm_dsi)
 {
 	struct msm_dsi_manager *msm_dsim = &msm_dsim_glb;
 	int id = msm_dsi->id;
-	int ret;
+	int ret = 0;
+
+	MSM_FUNC_ENTER("[DSI-MGR] register id=%d", id);
 
 	if (id >= DSI_MAX) {
 		pr_err("%s: invalid id %d\n", __func__, id);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	if (msm_dsim->dsi[id]) {
 		pr_err("%s: dsi%d already registered\n", __func__, id);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto out;
 	}
 
 	msm_dsim->dsi[id] = msm_dsi;
@@ -834,22 +913,30 @@ int msm_dsi_manager_register(struct msm_dsi *msm_dsi)
 		goto fail;
 	}
 
-	return 0;
+	ret = 0;
+	goto out;
 
 fail:
 	msm_dsim->dsi[id] = NULL;
+out:
+	MSM_FUNC_EXIT("[DSI-MGR] register id=%d ret=%d", id, ret);
 	return ret;
 }
 
 void msm_dsi_manager_unregister(struct msm_dsi *msm_dsi)
 {
 	struct msm_dsi_manager *msm_dsim = &msm_dsim_glb;
+	int id = msm_dsi ? msm_dsi->id : -1;
+
+	MSM_FUNC_ENTER("[DSI-MGR] unregister id=%d", id);
 
 	if (msm_dsi->host)
 		msm_dsi_host_unregister(msm_dsi->host);
 
 	if (msm_dsi->id >= 0)
 		msm_dsim->dsi[msm_dsi->id] = NULL;
+
+	MSM_FUNC_EXIT("[DSI-MGR] unregister id=%d", id);
 }
 
 bool msm_dsi_is_bonded_dsi(struct msm_dsi *msm_dsi)

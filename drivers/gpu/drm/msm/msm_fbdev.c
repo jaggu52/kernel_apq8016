@@ -47,8 +47,12 @@ static int msm_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	struct drm_fb_helper *helper = (struct drm_fb_helper *)info->par;
 	struct msm_fbdev *fbdev = to_msm_fbdev(helper);
 	struct drm_gem_object *bo = msm_framebuffer_bo(fbdev->fb, 0);
+	int ret;
 
-	return drm_gem_prime_mmap(bo, vma);
+	MSM_FUNC_ENTER("info=%p", info);
+	ret = drm_gem_prime_mmap(bo, vma);
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static int msm_fbdev_create(struct drm_fb_helper *helper,
@@ -64,6 +68,7 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 	uint32_t format;
 	int ret, pitch;
 
+	MSM_FUNC_ENTER("helper=%p", helper);
 	format = drm_mode_legacy_fb_format(sizes->surface_bpp, sizes->surface_depth);
 
 	DBG("create fbdev: %dx%d@%d (%dx%d)", sizes->surface_width,
@@ -76,7 +81,8 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 
 	if (IS_ERR(fb)) {
 		DRM_DEV_ERROR(dev->dev, "failed to allocate fb\n");
-		return PTR_ERR(fb);
+		ret = PTR_ERR(fb);
+		goto out;
 	}
 
 	bo = msm_framebuffer_bo(fb, 0);
@@ -125,12 +131,15 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 	DBG("allocated %dx%d fb", fbdev->fb->width, fbdev->fb->height);
 
 	mutex_unlock(&dev->struct_mutex);
-
-	return 0;
+	ret = 0;
+	goto out;
 
 fail_unlock:
 	mutex_unlock(&dev->struct_mutex);
 	drm_framebuffer_remove(fb);
+
+out:
+	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
 
@@ -145,10 +154,15 @@ struct drm_fb_helper *msm_fbdev_init(struct drm_device *dev)
 	struct msm_fbdev *fbdev = NULL;
 	struct drm_fb_helper *helper;
 	int ret;
+	struct drm_fb_helper *result;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
+	ret = -ENOMEM;
+	result = NULL;
 
 	fbdev = kzalloc(sizeof(*fbdev), GFP_KERNEL);
 	if (!fbdev)
-		goto fail;
+		goto out;
 
 	helper = &fbdev->base;
 
@@ -170,14 +184,17 @@ struct drm_fb_helper *msm_fbdev_init(struct drm_device *dev)
 		goto fini;
 
 	priv->fbdev = helper;
-
-	return helper;
+	result = helper;
+	ret = 0;
+	goto out;
 
 fini:
 	drm_fb_helper_fini(helper);
 fail:
 	kfree(fbdev);
-	return NULL;
+out:
+	MSM_FUNC_EXIT("helper=%p ret=%d", result, ret);
+	return result;
 }
 
 void msm_fbdev_free(struct drm_device *dev)
@@ -186,6 +203,7 @@ void msm_fbdev_free(struct drm_device *dev)
 	struct drm_fb_helper *helper = priv->fbdev;
 	struct msm_fbdev *fbdev;
 
+	MSM_FUNC_ENTER("dev=%p", dev);
 	DBG();
 
 	drm_fb_helper_unregister_fbi(helper);
@@ -205,4 +223,5 @@ void msm_fbdev_free(struct drm_device *dev)
 	kfree(fbdev);
 
 	priv->fbdev = NULL;
+	MSM_FUNC_EXIT("");
 }

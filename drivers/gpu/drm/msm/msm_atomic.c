@@ -18,13 +18,19 @@ int msm_atomic_prepare_fb(struct drm_plane *plane,
 {
 	struct msm_drm_private *priv = plane->dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+	int ret = 0;
 
+	MSM_FUNC_ENTER("plane=%s", plane->name);
 	if (!new_state->fb)
-		return 0;
+		goto exit;
 
 	drm_gem_plane_helper_prepare_fb(plane, new_state);
 
-	return msm_framebuffer_prepare(new_state->fb, kms->aspace);
+	ret = msm_framebuffer_prepare(new_state->fb, kms->aspace);
+
+exit:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 /*
@@ -37,22 +43,28 @@ static void vblank_get(struct msm_kms *kms, unsigned crtc_mask)
 {
 	struct drm_crtc *crtc;
 
+	MSM_FUNC_ENTER("kms=%p mask=0x%08x", kms, crtc_mask);
+
 	for_each_crtc_mask(kms->dev, crtc, crtc_mask) {
 		if (!crtc->state->active)
 			continue;
 		drm_crtc_vblank_get(crtc);
 	}
+	MSM_FUNC_EXIT("");
 }
 
 static void vblank_put(struct msm_kms *kms, unsigned crtc_mask)
 {
 	struct drm_crtc *crtc;
 
+	MSM_FUNC_ENTER("kms=%p mask=0x%08x", kms, crtc_mask);
+
 	for_each_crtc_mask(kms->dev, crtc, crtc_mask) {
 		if (!crtc->state->active)
 			continue;
 		drm_crtc_vblank_put(crtc);
 	}
+	MSM_FUNC_EXIT("");
 }
 
 static void lock_crtcs(struct msm_kms *kms, unsigned int crtc_mask)
@@ -60,24 +72,31 @@ static void lock_crtcs(struct msm_kms *kms, unsigned int crtc_mask)
 	int crtc_index;
 	struct drm_crtc *crtc;
 
+	MSM_FUNC_ENTER("kms=%p mask=0x%08x", kms, crtc_mask);
+
 	for_each_crtc_mask(kms->dev, crtc, crtc_mask) {
 		crtc_index = drm_crtc_index(crtc);
 		mutex_lock_nested(&kms->commit_lock[crtc_index], crtc_index);
 	}
+	MSM_FUNC_EXIT("");
 }
 
 static void unlock_crtcs(struct msm_kms *kms, unsigned int crtc_mask)
 {
 	struct drm_crtc *crtc;
 
+	MSM_FUNC_ENTER("kms=%p mask=0x%08x", kms, crtc_mask);
+
 	for_each_crtc_mask_reverse(kms->dev, crtc, crtc_mask)
 		mutex_unlock(&kms->commit_lock[drm_crtc_index(crtc)]);
+	MSM_FUNC_EXIT("");
 }
 
 static void msm_atomic_async_commit(struct msm_kms *kms, int crtc_idx)
 {
 	unsigned crtc_mask = BIT(crtc_idx);
 
+	MSM_FUNC_ENTER("kms=%p crtc_idx=%d", kms, crtc_idx);
 	trace_msm_atomic_async_commit_start(crtc_mask);
 
 	lock_crtcs(kms, crtc_mask);
@@ -114,16 +133,20 @@ static void msm_atomic_async_commit(struct msm_kms *kms, int crtc_idx)
 
 out:
 	trace_msm_atomic_async_commit_finish(crtc_mask);
+	MSM_FUNC_EXIT("");
 }
 
 static enum hrtimer_restart msm_atomic_pending_timer(struct hrtimer *t)
 {
 	struct msm_pending_timer *timer = container_of(t,
 			struct msm_pending_timer, timer);
+	enum hrtimer_restart ret;
 
+	MSM_FUNC_ENTER("timer=%p", timer);
 	kthread_queue_work(timer->worker, &timer->work);
-
-	return HRTIMER_NORESTART;
+	ret = HRTIMER_NORESTART;
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 static void msm_atomic_pending_work(struct kthread_work *work)
@@ -131,12 +154,15 @@ static void msm_atomic_pending_work(struct kthread_work *work)
 	struct msm_pending_timer *timer = container_of(work,
 			struct msm_pending_timer, work);
 
+	MSM_FUNC_ENTER("timer=%p", timer);
 	msm_atomic_async_commit(timer->kms, timer->crtc_idx);
+	MSM_FUNC_EXIT("");
 }
 
 int msm_atomic_init_pending_timer(struct msm_pending_timer *timer,
 		struct msm_kms *kms, int crtc_idx)
 {
+	MSM_FUNC_ENTER("timer=%p kms=%p crtc_idx=%d", timer, kms, crtc_idx);
 	timer->kms = kms;
 	timer->crtc_idx = crtc_idx;
 	hrtimer_init(&timer->timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
@@ -146,18 +172,22 @@ int msm_atomic_init_pending_timer(struct msm_pending_timer *timer,
 	if (IS_ERR(timer->worker)) {
 		int ret = PTR_ERR(timer->worker);
 		timer->worker = NULL;
+		MSM_FUNC_EXIT("ret=%d", ret);
 		return ret;
 	}
 	sched_set_fifo(timer->worker->task);
 	kthread_init_work(&timer->work, msm_atomic_pending_work);
 
+	MSM_FUNC_EXIT("ret=0");
 	return 0;
 }
 
 void msm_atomic_destroy_pending_timer(struct msm_pending_timer *timer)
 {
+	MSM_FUNC_ENTER("timer=%p", timer);
 	if (timer->worker)
 		kthread_destroy_worker(timer->worker);
+	MSM_FUNC_EXIT("");
 }
 
 static bool can_do_async(struct drm_atomic_state *state,
@@ -168,23 +198,29 @@ static bool can_do_async(struct drm_atomic_state *state,
 	struct drm_crtc_state *crtc_state;
 	struct drm_crtc *crtc;
 	int i, num_crtcs = 0;
+	bool ret = false;
 
+	MSM_FUNC_ENTER("state=%p", state);
 	if (!(state->legacy_cursor_update || state->async_update))
-		return false;
+		goto exit;
 
 	/* any connector change, means slow path: */
 	for_each_new_connector_in_state(state, connector, connector_state, i)
-		return false;
+		goto exit;
 
 	for_each_new_crtc_in_state(state, crtc, crtc_state, i) {
 		if (drm_atomic_crtc_needs_modeset(crtc_state))
-			return false;
+			goto exit;
 		if (++num_crtcs > 1)
-			return false;
+			goto exit;
 		*async_crtc = crtc;
 	}
 
-	return true;
+	ret = true;
+
+exit:
+	MSM_FUNC_EXIT("ret=%d", ret);
+	return ret;
 }
 
 /* Get bitmask of crtcs that will need to be flushed.  The bitmask
@@ -197,9 +233,10 @@ static unsigned get_crtc_mask(struct drm_atomic_state *state)
 	struct drm_crtc *crtc;
 	unsigned i, mask = 0;
 
+	MSM_FUNC_ENTER("state=%p", state);
 	for_each_new_crtc_in_state(state, crtc, crtc_state, i)
 		mask |= drm_crtc_mask(crtc);
-
+	MSM_FUNC_EXIT("mask=0x%08x", mask);
 	return mask;
 }
 
@@ -213,6 +250,7 @@ void msm_atomic_commit_tail(struct drm_atomic_state *state)
 	bool async = kms->funcs->vsync_time &&
 			can_do_async(state, &async_crtc);
 
+	MSM_FUNC_ENTER("state=%p", state);
 	trace_msm_atomic_commit_tail_start(async, crtc_mask);
 
 	kms->funcs->enable_commit(kms);
@@ -273,6 +311,7 @@ void msm_atomic_commit_tail(struct drm_atomic_state *state)
 		drm_atomic_helper_cleanup_planes(dev, state);
 
 		trace_msm_atomic_commit_tail_finish(async, crtc_mask);
+		MSM_FUNC_EXIT("async=%d mask=0x%08x", async, crtc_mask);
 
 		return;
 	}
@@ -309,4 +348,5 @@ void msm_atomic_commit_tail(struct drm_atomic_state *state)
 	drm_atomic_helper_cleanup_planes(dev, state);
 
 	trace_msm_atomic_commit_tail_finish(async, crtc_mask);
+	MSM_FUNC_EXIT("async=%d mask=0x%08x", async, crtc_mask);
 }

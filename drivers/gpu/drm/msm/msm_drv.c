@@ -169,7 +169,7 @@ static void __iomem *_msm_ioremap(struct platform_device *pdev, const char *name
 	}
 
 	if (reglog)
-		printk(KERN_DEBUG "IO:region %s %p %08lx\n", dbgname, ptr, size);
+		printk(KERN_DEBUG "IO:region %s base 0x%08llx %p 0x%08lx\n", dbgname, res->start, ptr, size);
 
 	if (psize)
 		*psize = size;
@@ -228,7 +228,7 @@ u32 msm_readl(const void __iomem *addr)
 {
 	u32 val = readl(addr);
 	if (reglog)
-		pr_err("IO:R %p %08x\n", addr, val);
+		printk("IO:R %p %08x\n", addr, val);
 	return val;
 }
 

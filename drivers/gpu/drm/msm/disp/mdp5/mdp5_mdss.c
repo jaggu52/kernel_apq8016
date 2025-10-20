@@ -30,15 +30,15 @@ struct mdp5_mdss {
 
 static inline void mdss_write(struct mdp5_mdss *mdp5_mdss, u32 reg, u32 data)
 {
-	MDP5_MDSS_DBG("write reg=0x%05x data=0x%08x", reg, data);
+	printk(KERN_DEBUG "IO:W MDSS base - 0x01a00000 offset - 0x%08x data - %08x\n", reg, data);
 	msm_writel(data, mdp5_mdss->mmio + reg);
 }
 
 static inline u32 mdss_read(struct mdp5_mdss *mdp5_mdss, u32 reg)
 {
-	u32 val = msm_readl(mdp5_mdss->mmio + reg);
-	MDP5_MDSS_DBG("read reg=0x%05x val=0x%08x", reg, val);
-	return val;
+	u32 data = msm_readl(mdp5_mdss->mmio + reg);
+	printk(KERN_DEBUG "IO:R MDSS base - 0x01a00000 offset - 0x%08x data - %08x\n", reg, data);
+	return data;
 }
 
 static irqreturn_t mdss_irq(int irq, void *arg)
@@ -281,11 +281,11 @@ int mdp5_mdss_init(struct drm_device *dev)
 		goto fail;
 	}
 
-	mdp5_mdss->vbif = msm_ioremap(pdev, "vbif_phys", "VBIF");
-	if (IS_ERR(mdp5_mdss->vbif)) {
-		ret = PTR_ERR(mdp5_mdss->vbif);
-		goto fail;
-	}
+	//mdp5_mdss->vbif = msm_ioremap(pdev, "vbif_phys", "VBIF");
+	//if (IS_ERR(mdp5_mdss->vbif)) {
+	//	ret = PTR_ERR(mdp5_mdss->vbif);
+	//	goto fail;
+	//}
 
 	ret = msm_mdss_get_clocks(mdp5_mdss);
 	if (ret) {

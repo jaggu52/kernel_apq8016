@@ -52,6 +52,7 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
 	 */
 
 	ver = msm_readl(base + REG_DSI_VERSION);
+	printk(KERN_DEBUG "IO:R DSI CTRL base - 0x01a98000 offset - 0x%08x data - %08x\n", REG_DSI_VERSION, ver);
 	if (ver) {
 		/* older dsi host, there is no register shift */
 		ver = FIELD(ver, DSI_VERSION_MAJOR);
@@ -194,10 +195,15 @@ static u32 dsi_get_bpp(const enum mipi_dsi_pixel_format fmt)
 
 static inline u32 dsi_read(struct msm_dsi_host *msm_host, u32 reg)
 {
-	return msm_readl(msm_host->ctrl_base + reg);
+	u32 data;
+
+	data = msm_readl(msm_host->ctrl_base + reg);
+	printk(KERN_DEBUG "IO:R DSI CTRL base - 0x01a98000 offset - 0x%08x data - %08x\n", reg, data);
+	return data;
 }
 static inline void dsi_write(struct msm_dsi_host *msm_host, u32 reg, u32 data)
 {
+	printk(KERN_DEBUG "IO:W DSI CTRL base - 0x01a98000 offset - 0x%08x data - %08x\n", reg, data);
 	msm_writel(data, msm_host->ctrl_base + reg);
 }
 

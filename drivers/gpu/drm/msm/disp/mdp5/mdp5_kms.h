@@ -168,14 +168,19 @@ struct mdp5_encoder {
 static inline void mdp5_write(struct mdp5_kms *mdp5_kms, u32 reg, u32 data)
 {
 	WARN_ON(mdp5_kms->enable_count <= 0);
+	printk(KERN_DEBUG "IO:W MDP5 base - 0x01a01000 offset - 0x%08x data - %08x\n", reg, data);
 	msm_writel(data, mdp5_kms->mmio + reg);
 }
 
 //Register Read function
 static inline u32 mdp5_read(struct mdp5_kms *mdp5_kms, u32 reg)
 {
+	u32 data;
+
 	WARN_ON(mdp5_kms->enable_count <= 0);
-	return msm_readl(mdp5_kms->mmio + reg);
+	data = msm_readl(mdp5_kms->mmio + reg);
+	printk(KERN_DEBUG "IO:R MDP5 base - 0x01a01000 offset - 0x%08x data - %08x\n", reg, data);
+	return data;
 }
 
 static inline const char *stage2name(enum mdp_mixer_stage_id stage)

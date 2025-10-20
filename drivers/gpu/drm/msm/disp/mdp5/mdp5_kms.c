@@ -983,6 +983,7 @@ static int mdp5_init(struct platform_device *pdev, struct drm_device *dev)
 	u32 major, minor;
 	int ret;
 
+	MSM_FUNC_ENTER("[KMS]");
 	dev_info(&pdev->dev, "APQ8016 HW has MDP5!\n");
 
 	mdp5_kms = devm_kzalloc(&pdev->dev, sizeof(*mdp5_kms), GFP_KERNEL);
@@ -1092,8 +1093,10 @@ static int mdp5_init(struct platform_device *pdev, struct drm_device *dev)
 	/* set uninit-ed kms */
 	priv->kms = &mdp5_kms->base.base;
 
+	MSM_FUNC_EXIT("[KMS]");
 	return 0;
 fail:
+	MSM_FUNC_EXIT("[KMS]");
 	if (mdp5_kms)
 		mdp5_destroy(pdev);
 	return ret;
@@ -1177,6 +1180,7 @@ static __maybe_unused int mdp5_runtime_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mdp5_kms *mdp5_kms = platform_get_drvdata(pdev);
 
+	MSM_FUNC_ENTER("[KMS]");
 	DBG("");
 
 	return mdp5_disable(mdp5_kms);
@@ -1188,6 +1192,7 @@ static __maybe_unused int mdp5_runtime_resume(struct device *dev)
 	struct mdp5_kms *mdp5_kms = platform_get_drvdata(pdev);
 
 	DBG("");
+	MSM_FUNC_ENTER("[KMS]");
 
 	return mdp5_enable(mdp5_kms);
 }

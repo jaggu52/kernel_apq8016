@@ -498,9 +498,11 @@ int msm_dsi_runtime_resume(struct device *dev)
 	struct mipi_dsi_host *host = msm_dsi->host;
 	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
 
+	MSM_FUNC_ENTER("[DSI]");
 	if (!msm_host->cfg_hnd)
 		return 0;
 
+	MSM_FUNC_EXIT("[DSI]");
 	return dsi_bus_clk_enable(msm_host);
 }
 

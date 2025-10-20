@@ -29,7 +29,7 @@ static int mdp5_hw_init(struct msm_kms *kms)
 	MSM_FUNC_ENTER("[KMS]");
 
 	MDP5_DBG("Starting MDP5 hardware initialization");
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 	MDP5_DBG("Power runtime acquired");
 
 	/* Magic unknown register writes:
@@ -65,7 +65,7 @@ static int mdp5_hw_init(struct msm_kms *kms)
 	mdp5_ctlm_hw_reset(mdp5_kms->ctlm);
 	MDP5_DBG("CTLM hardware reset completed");
 
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 	MDP5_DBG("Power runtime released");
 	MDP5_DBG("MDP5 hardware initialization completed");
 	MSM_FUNC_EXIT("[KMS]");
@@ -186,7 +186,7 @@ static void mdp5_enable_commit(struct msm_kms *kms)
 {
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	MSM_FUNC_ENTER("[KMS]");
-	pm_runtime_get_sync(&mdp5_kms->pdev->dev);
+	//pm_runtime_get_sync(&mdp5_kms->pdev->dev);
 	MSM_FUNC_EXIT("[KMS]");
 }
 
@@ -194,7 +194,7 @@ static void mdp5_disable_commit(struct msm_kms *kms)
 {
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	MSM_FUNC_ENTER("[KMS]");
-	pm_runtime_put_sync(&mdp5_kms->pdev->dev);
+	//pm_runtime_put_sync(&mdp5_kms->pdev->dev);
 	MSM_FUNC_EXIT("[KMS]");
 }
 
@@ -667,9 +667,9 @@ static void read_mdp_hw_revision(struct mdp5_kms *mdp5_kms,
 	MDP5_DBG("mdp5_read on REG_MDP5_HW_VERSION");
 	MDP5_DBG("REG_MDP5_HW_VERSION offset = 0x%x", REG_MDP5_HW_VERSION);
 
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 	version = mdp5_read(mdp5_kms, REG_MDP5_HW_VERSION);
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 
 	*major = FIELD(version, MDP5_HW_VERSION_MAJOR);
 	*minor = FIELD(version, MDP5_HW_VERSION_MINOR);
@@ -750,7 +750,7 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 	 * we don't disable):
 	 */
 	MDP5_DBG("Disabling interfaces before IOMMU setup");
-	pm_runtime_get_sync(&pdev->dev);
+	//pm_runtime_get_sync(&pdev->dev);
 	for (i = 0; i < MDP5_INTF_NUM_MAX; i++) {
 		if (mdp5_cfg_intf_is_virtual(config->hw->intf.connect[i]) ||
 		    !config->hw->intf.base[i])
@@ -796,7 +796,7 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 		aspace = NULL;
 	}
 
-	pm_runtime_put_sync(&pdev->dev);
+	//pm_runtime_put_sync(&pdev->dev);
 
 	MDP5_DBG("Initializing modeset");
 	ret = modeset_init(mdp5_kms);
@@ -840,7 +840,7 @@ static void mdp5_destroy(struct platform_device *pdev)
 		kfree(mdp5_kms->intfs[i]);
 
 	if (mdp5_kms->rpm_enabled)
-		pm_runtime_disable(&pdev->dev);
+		//pm_runtime_disable(&pdev->dev);
 
 	drm_atomic_private_obj_fini(&mdp5_kms->glob_state);
 	drm_modeset_lock_fini(&mdp5_kms->glob_state_lock);
@@ -1033,7 +1033,11 @@ static int mdp5_init(struct platform_device *pdev, struct drm_device *dev)
 	 */
 	clk_set_rate(mdp5_kms->core_clk, 200000000);
 
-	pm_runtime_enable(&pdev->dev);
+	//pm_runtime_enable(&pdev->dev);
+	ret = mdp5_enable(mdp5_kms);
+	if (ret)
+		goto fail;
+
 	mdp5_kms->rpm_enabled = true;
 
 	read_mdp_hw_revision(mdp5_kms, &major, &minor);
@@ -1206,7 +1210,7 @@ static struct platform_driver mdp5_driver = {
 	.driver = {
 		.name = "msm_mdp",
 		.of_match_table = mdp5_dt_match,
-		.pm = &mdp5_pm_ops,
+		//.pm = &mdp5_pm_ops,
 	},
 };
 

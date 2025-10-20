@@ -49,10 +49,10 @@ void mdp5_irq_preinstall(struct msm_kms *kms)
 
 	MSM_FUNC_ENTER("kms=%p", kms);
 	MDP5_DBG("irq_preinstall");
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 	mdp5_write(mdp5_kms, REG_MDP5_INTR_CLEAR, 0xffffffff);
 	mdp5_write(mdp5_kms, REG_MDP5_INTR_EN, 0x00000000);
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 	MSM_FUNC_EXIT("");
 }
 
@@ -71,9 +71,9 @@ int mdp5_irq_postinstall(struct msm_kms *kms)
 			MDP5_IRQ_INTF2_UNDER_RUN |
 			MDP5_IRQ_INTF3_UNDER_RUN;
 
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 	mdp_irq_register(mdp_kms, error_handler);
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 
 	MSM_FUNC_EXIT("ret=0");
 	return 0;
@@ -86,9 +86,9 @@ void mdp5_irq_uninstall(struct msm_kms *kms)
 
 	MSM_FUNC_ENTER("kms=%p", kms);
 	MDP5_DBG("irq_uninstall");
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 	mdp5_write(mdp5_kms, REG_MDP5_INTR_EN, 0x00000000);
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 	MSM_FUNC_EXIT("");
 }
 
@@ -127,10 +127,10 @@ int mdp5_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 
 	MSM_FUNC_ENTER("kms=%p crtc=%p", kms, crtc);
 	MDP5_DBG("enable_vblank crtc=%p", crtc);
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 	mdp_update_vblank_mask(to_mdp_kms(kms),
 			mdp5_crtc_vblank(crtc), true);
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 
 	MSM_FUNC_EXIT("ret=0");
 	return 0;
@@ -143,9 +143,9 @@ void mdp5_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 
 	MSM_FUNC_ENTER("kms=%p crtc=%p", kms, crtc);
 	MDP5_DBG("disable_vblank crtc=%p", crtc);
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 	mdp_update_vblank_mask(to_mdp_kms(kms),
 			mdp5_crtc_vblank(crtc), false);
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 	MSM_FUNC_EXIT("");
 }

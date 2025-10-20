@@ -221,7 +221,7 @@ static struct platform_driver dsi_driver = {
 	.driver = {
 		.name = "msm_dsi",
 		.of_match_table = dt_match,
-		.pm = &dsi_pm_ops,
+		//.pm = &dsi_pm_ops,
 	},
 };
 

@@ -242,7 +242,7 @@ static void mdp5_mdss_destroy(struct drm_device *dev)
 
 	regulator_disable(mdp5_mdss->vdd);
 
-	pm_runtime_disable(dev->dev);
+	//pm_runtime_disable(dev->dev);
 	MSM_FUNC_EXIT("[MDSS] dev=%p", dev);
 }
 
@@ -323,7 +323,7 @@ int mdp5_mdss_init(struct drm_device *dev)
 	mdp5_mdss->base.funcs = &mdss_funcs;
 	priv->mdss = &mdp5_mdss->base;
 
-	pm_runtime_enable(dev->dev);
+	//pm_runtime_enable(dev->dev);
 	MSM_FUNC_EXIT("[MDSS] dev=%p ret=0", dev);
 	return 0;
 fail_irq:

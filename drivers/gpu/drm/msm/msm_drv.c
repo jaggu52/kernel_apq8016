@@ -429,9 +429,9 @@ static int msm_drm_uninit(struct device *dev)
 
 	drm_mode_config_cleanup(ddev);
 
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 	msm_irq_uninstall(ddev);
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 
 	if (kms && kms->funcs)
 		kms->funcs->destroy(kms);
@@ -740,10 +740,10 @@ static int msm_drm_init(struct device *dev, const struct drm_driver *drv)
 	MSM_DRV_DBG("VBlank initialized for %u CRTCs", priv->num_crtcs);
 
 	if (kms) {
-		pm_runtime_get_sync(dev);
+		//pm_runtime_get_sync(dev);
 		MSM_DRV_DBG("Installing IRQ handler for IRQ %d", kms->irq);
 		ret = msm_irq_install(ddev, kms->irq);
-		pm_runtime_put_sync(dev);
+		//pm_runtime_put_sync(dev);
 		if (ret < 0) {
 			DRM_DEV_ERROR(dev, "failed to install IRQ handler\n");
 			MSM_ERROR_DBG("IRQ installation failed, ret=%d", ret);
@@ -1800,7 +1800,7 @@ static struct platform_driver msm_platform_driver = {
 	.driver     = {
 		.name   = "msm",
 		.of_match_table = dt_match,
-		.pm     = &msm_pm_ops,
+		//.pm     = &msm_pm_ops,
 	},
 };
 

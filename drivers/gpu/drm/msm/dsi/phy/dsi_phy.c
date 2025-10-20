@@ -588,12 +588,12 @@ static int dsi_phy_enable_resource(struct msm_dsi_phy *phy)
 	struct device *dev = &phy->pdev->dev;
 	int ret;
 
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 
 	ret = clk_prepare_enable(phy->ahb_clk);
 	if (ret) {
 		DRM_DEV_ERROR(dev, "%s: can't enable ahb clk, %d\n", __func__, ret);
-		pm_runtime_put_sync(dev);
+		//pm_runtime_put_sync(dev);
 	}
 
 	return ret;
@@ -602,7 +602,7 @@ static int dsi_phy_enable_resource(struct msm_dsi_phy *phy)
 static void dsi_phy_disable_resource(struct msm_dsi_phy *phy)
 {
 	clk_disable_unprepare(phy->ahb_clk);
-	pm_runtime_put_autosuspend(&phy->pdev->dev);
+	//pm_runtime_put_autosuspend(&phy->pdev->dev);
 }
 
 static const struct of_device_id dsi_phy_dt_match[] = {

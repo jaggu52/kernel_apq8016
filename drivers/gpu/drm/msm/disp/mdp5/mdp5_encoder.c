@@ -352,7 +352,7 @@ int mdp5_vid_encoder_set_split_display(struct drm_encoder *encoder,
 
 	dev = &mdp5_kms->pdev->dev;
 	/* Make sure clocks are on when connectors calling this function. */
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 
 	/* Dumb Panel, Sync mode */
 	mdp5_write(mdp5_kms, REG_MDP5_SPLIT_DPL_UPPER, 0);
@@ -361,7 +361,7 @@ int mdp5_vid_encoder_set_split_display(struct drm_encoder *encoder,
 
 	mdp5_ctl_pair(mdp5_encoder->ctl, mdp5_slave_enc->ctl, true);
 
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 	ret = 0;
 	MSM_FUNC_EXIT("[ENC] encoder=%p ret=%d", encoder, ret);
 	return ret;

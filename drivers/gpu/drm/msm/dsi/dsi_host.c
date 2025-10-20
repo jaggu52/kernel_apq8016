@@ -225,7 +225,7 @@ static const struct msm_dsi_cfg_handler *dsi_get_config(
 		goto exit;
 	}
 
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 
 	ret = clk_prepare_enable(ahb_clk);
 	if (ret) {
@@ -246,7 +246,7 @@ static const struct msm_dsi_cfg_handler *dsi_get_config(
 disable_clks:
 	clk_disable_unprepare(ahb_clk);
 runtime_put:
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 exit:
 	return cfg_hnd;
 }
@@ -1858,7 +1858,7 @@ int msm_dsi_host_init(struct msm_dsi *msm_dsi)
 		goto fail;
 	}
 
-	pm_runtime_enable(&pdev->dev);
+	//pm_runtime_enable(&pdev->dev);
 
 	msm_host->cfg_hnd = dsi_get_config(msm_host);
 	if (!msm_host->cfg_hnd) {
@@ -1958,7 +1958,7 @@ void msm_dsi_host_destroy(struct mipi_dsi_host *host)
 	mutex_destroy(&msm_host->cmd_mutex);
 	mutex_destroy(&msm_host->dev_mutex);
 
-	pm_runtime_disable(&msm_host->pdev->dev);
+	//pm_runtime_disable(&msm_host->pdev->dev);
 }
 
 int msm_dsi_host_modeset_init(struct mipi_dsi_host *host,
@@ -2039,7 +2039,7 @@ int msm_dsi_host_xfer_prepare(struct mipi_dsi_host *host,
 	 * mdss interrupt is generated in mdp core clock domain
 	 * mdp clock need to be enabled to receive dsi interrupt
 	 */
-	pm_runtime_get_sync(&msm_host->pdev->dev);
+	//pm_runtime_get_sync(&msm_host->pdev->dev);
 	cfg_hnd->ops->link_clk_set_rate(msm_host);
 	cfg_hnd->ops->link_clk_enable(msm_host);
 
@@ -2073,7 +2073,7 @@ void msm_dsi_host_xfer_restore(struct mipi_dsi_host *host,
 	/* TODO: unvote for bus bandwidth */
 
 	cfg_hnd->ops->link_clk_disable(msm_host);
-	pm_runtime_put_autosuspend(&msm_host->pdev->dev);
+	//pm_runtime_put_autosuspend(&msm_host->pdev->dev);
 }
 
 int msm_dsi_host_cmd_tx(struct mipi_dsi_host *host,
@@ -2350,7 +2350,7 @@ int msm_dsi_host_enable(struct mipi_dsi_host *host)
 	 */
 	/* if (msm_panel->mode == MSM_DSI_CMD_MODE) {
 	 *	dsi_link_clk_disable(msm_host);
-	 *	pm_runtime_put_autosuspend(&msm_host->pdev->dev);
+	 *	//pm_runtime_put_autosuspend(&msm_host->pdev->dev);
 	 * }
 	 */
 	msm_host->enabled = true;
@@ -2411,7 +2411,7 @@ int msm_dsi_host_power_on(struct mipi_dsi_host *host,
 		goto unlock_ret;
 	}
 
-	pm_runtime_get_sync(&msm_host->pdev->dev);
+	//pm_runtime_get_sync(&msm_host->pdev->dev);
 	ret = cfg_hnd->ops->link_clk_set_rate(msm_host);
 	if (!ret)
 		ret = cfg_hnd->ops->link_clk_enable(msm_host);
@@ -2442,7 +2442,7 @@ int msm_dsi_host_power_on(struct mipi_dsi_host *host,
 
 fail_disable_clk:
 	cfg_hnd->ops->link_clk_disable(msm_host);
-	pm_runtime_put_autosuspend(&msm_host->pdev->dev);
+	//pm_runtime_put_autosuspend(&msm_host->pdev->dev);
 fail_disable_reg:
 	dsi_host_regulator_disable(msm_host);
 unlock_ret:
@@ -2469,7 +2469,7 @@ int msm_dsi_host_power_off(struct mipi_dsi_host *host)
 	pinctrl_pm_select_sleep_state(&msm_host->pdev->dev);
 
 	cfg_hnd->ops->link_clk_disable(msm_host);
-	pm_runtime_put_autosuspend(&msm_host->pdev->dev);
+	//pm_runtime_put_autosuspend(&msm_host->pdev->dev);
 
 	dsi_host_regulator_disable(msm_host);
 
@@ -2524,12 +2524,12 @@ void msm_dsi_host_snapshot(struct msm_disp_state *disp_state, struct mipi_dsi_ho
 {
 	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
 
-	pm_runtime_get_sync(&msm_host->pdev->dev);
+	//pm_runtime_get_sync(&msm_host->pdev->dev);
 
 	msm_disp_snapshot_add_block(disp_state, msm_host->ctrl_size,
 			msm_host->ctrl_base, "dsi%d_ctrl", msm_host->id);
 
-	pm_runtime_put_sync(&msm_host->pdev->dev);
+	//pm_runtime_put_sync(&msm_host->pdev->dev);
 }
 
 static void msm_dsi_host_video_test_pattern_setup(struct msm_dsi_host *msm_host)

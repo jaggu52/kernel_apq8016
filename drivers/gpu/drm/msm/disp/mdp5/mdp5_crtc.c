@@ -582,7 +582,7 @@ static void mdp5_crtc_atomic_disable(struct drm_crtc *crtc,
 		mdp_irq_unregister(&mdp5_kms->base, &mdp5_crtc->pp_done);
 
 	mdp_irq_unregister(&mdp5_kms->base, &mdp5_crtc->err);
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 
 	if (crtc->state->event && !crtc->state->active) {
 		WARN_ON(mdp5_crtc->event);
@@ -626,7 +626,7 @@ static void mdp5_crtc_atomic_enable(struct drm_crtc *crtc,
 	if (WARN_ON(mdp5_crtc->enabled))
 		return;
 
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 
 	if (mdp5_crtc->lm_cursor_enabled) {
 		/*
@@ -1119,7 +1119,7 @@ static int mdp5_crtc_cursor_set(struct drm_crtc *crtc,
 		DBG("Cursor off");
 		cursor_enable = false;
 		mdp5_crtc->cursor.iova = 0;
-		pm_runtime_get_sync(&pdev->dev);
+		//pm_runtime_get_sync(&pdev->dev);
 		MDP5_CRTC_DBG("cursor_set disable crtc=%s", crtc->name);
 		goto set_cursor;
 	}
@@ -1133,7 +1133,7 @@ static int mdp5_crtc_cursor_set(struct drm_crtc *crtc,
 	if (ret)
 		return -EINVAL;
 
-	pm_runtime_get_sync(&pdev->dev);
+	//pm_runtime_get_sync(&pdev->dev);
 
 	spin_lock_irqsave(&mdp5_crtc->cursor.lock, flags);
 	old_bo = mdp5_crtc->cursor.scanout_bo;
@@ -1159,7 +1159,7 @@ set_cursor:
 	crtc_flush(crtc, flush_mask);
 
 end:
-	pm_runtime_put_sync(&pdev->dev);
+	//pm_runtime_put_sync(&pdev->dev);
 	if (old_bo) {
 		drm_flip_work_queue(&mdp5_crtc->unref_cursor_work, old_bo);
 		/* enable vblank to complete cursor work: */
@@ -1202,7 +1202,7 @@ static int mdp5_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 
 	get_roi(crtc, &roi_w, &roi_h);
 
-	pm_runtime_get_sync(&mdp5_kms->pdev->dev);
+	//pm_runtime_get_sync(&mdp5_kms->pdev->dev);
 
 	spin_lock_irqsave(&mdp5_crtc->cursor.lock, flags);
 	mdp5_crtc_restore_cursor(crtc);
@@ -1210,7 +1210,7 @@ static int mdp5_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 
 	crtc_flush(crtc, flush_mask);
 
-	pm_runtime_put_sync(&mdp5_kms->pdev->dev);
+	//pm_runtime_put_sync(&mdp5_kms->pdev->dev);
 
 	MSM_FUNC_EXIT("new_x=%d new_y=%d", mdp5_crtc->cursor.x, mdp5_crtc->cursor.y);
 	return 0;

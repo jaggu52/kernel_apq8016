@@ -218,13 +218,13 @@ int mdp5_cmd_encoder_set_split_display(struct drm_encoder *encoder,
 	dev = &mdp5_kms->pdev->dev;
 
 	/* Make sure clocks are on when connectors calling this function. */
-	pm_runtime_get_sync(dev);
+	//pm_runtime_get_sync(dev);
 	mdp5_write(mdp5_kms, REG_MDP5_SPLIT_DPL_UPPER, data);
 
 	mdp5_write(mdp5_kms, REG_MDP5_SPLIT_DPL_LOWER,
 		   MDP5_SPLIT_DPL_LOWER_SMART_PANEL);
 	mdp5_write(mdp5_kms, REG_MDP5_SPLIT_DPL_EN, 1);
-	pm_runtime_put_sync(dev);
+	//pm_runtime_put_sync(dev);
 	MSM_FUNC_EXIT("[CMD] set_split_display configured intf_num=%d data=0x%08x",
 		intf_num, data);
 

@@ -89,10 +89,10 @@ static int msm_gpu_open(struct inode *inode, struct file *file)
 	if (ret)
 		goto free_priv;
 
-	pm_runtime_get_sync(&gpu->pdev->dev);
+	//pm_runtime_get_sync(&gpu->pdev->dev);
 	msm_gpu_hw_init(gpu);
 	show_priv->state = gpu->funcs->gpu_state_get(gpu);
-	pm_runtime_put_sync(&gpu->pdev->dev);
+	//pm_runtime_put_sync(&gpu->pdev->dev);
 
 	mutex_unlock(&dev->struct_mutex);
 

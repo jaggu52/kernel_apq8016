@@ -887,6 +887,8 @@ static int hwpipe_init(struct mdp5_kms *mdp5_kms)
 	const struct mdp5_cfg_hw *hw_cfg;
 	int ret;
 
+	MSM_FUNC_ENTER("[KMS]");
+
 	hw_cfg = mdp5_cfg_get_hw_config(mdp5_kms->cfg);
 
 	/* Construct RGB pipes: */
@@ -914,6 +916,8 @@ static int hwpipe_init(struct mdp5_kms *mdp5_kms)
 	if (ret)
 		return ret;
 
+	MSM_FUNC_EXIT("[KMS]");
+
 	return 0;
 }
 
@@ -923,6 +927,7 @@ static int hwmixer_init(struct mdp5_kms *mdp5_kms)
 	const struct mdp5_cfg_hw *hw_cfg;
 	int i, ret;
 
+	MSM_FUNC_ENTER("[KMS]");
 	hw_cfg = mdp5_cfg_get_hw_config(mdp5_kms->cfg);
 
 	for (i = 0; i < hw_cfg->lm.count; i++) {
@@ -940,6 +945,7 @@ static int hwmixer_init(struct mdp5_kms *mdp5_kms)
 		mdp5_kms->hwmixers[mdp5_kms->num_hwmixers++] = mixer;
 	}
 
+	MSM_FUNC_EXIT("[KMS]");
 	return 0;
 }
 

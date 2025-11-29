@@ -481,7 +481,7 @@ u32 msm_readl(const void __iomem *addr);
 void msm_rmw(void __iomem *addr, u32 mask, u32 or);
 
 /* Enhanced Debug Macros for APQ8016 Display Engine Analysis */
-#define MSM_DEBUG_ENABLE 1
+#define MSM_DEBUG_ENABLE 0
 
 #if MSM_DEBUG_ENABLE
 /* Function entry/exit tracing */

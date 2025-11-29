@@ -529,6 +529,8 @@ static int msm_init_vram(struct drm_device *dev)
 		size = memparse(vram, NULL);
 	}
 
+	DRM_INFO("vram size = %ld\n", size);
+
 	if (size) {
 		unsigned long attrs = 0;
 		void *p;
@@ -870,11 +872,11 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 	/* For now, load gpu on open.. to avoid the requirement of having
 	 * firmware in the initrd.
 	 */
-	MSM_DRV_DBG("Loading GPU");
-	load_gpu(dev);
+	//MSM_DRV_DBG("Loading GPU");
+	//load_gpu(dev);
 
-	MSM_DRV_DBG("Initializing context");
-	ret = context_init(dev, file);
+	//MSM_DRV_DBG("Initializing context");
+	//ret = context_init(dev, file);
 	MSM_FUNC_EXIT("ret=%d", ret);
 	return ret;
 }
@@ -893,6 +895,7 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 	struct msm_file_private *ctx = file->driver_priv;
 
 	MSM_FUNC_ENTER("Closing MSM DRM device");
+	return;
 
 	mutex_lock(&dev->struct_mutex);
 	if (ctx == priv->lastctx) {
@@ -1810,6 +1813,8 @@ static int __init msm_drm_register(void)
 		return -EINVAL;
 
 	DBG("init");
+	MSM_FUNC_ENTER();
+
 	msm_mdp_register();
 	//msm_dpu_register();
 	msm_dsi_register();
@@ -1817,12 +1822,15 @@ static int __init msm_drm_register(void)
 	//msm_hdmi_register();
 	//msm_dp_register();
 	//adreno_register();
+
+	MSM_FUNC_EXIT();
 	return platform_driver_register(&msm_platform_driver);
 }
 
 static void __exit msm_drm_unregister(void)
 {
 	DBG("fini");
+	MSM_FUNC_ENTER();
 	platform_driver_unregister(&msm_platform_driver);
 	//msm_dp_unregister();
 	//msm_hdmi_unregister();
@@ -1831,6 +1839,7 @@ static void __exit msm_drm_unregister(void)
 	msm_dsi_unregister();
 	msm_mdp_unregister();
 	//msm_dpu_unregister();
+	MSM_FUNC_EXIT();
 }
 
 module_init(msm_drm_register);

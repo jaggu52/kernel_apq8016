@@ -676,6 +676,8 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 	u32 phy_type;
 	int ret;
 
+	MSM_FUNC_ENTER("[DSI]");
+
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy)
 		return -ENOMEM;
@@ -794,6 +796,7 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, phy);
 
+	MSM_FUNC_EXIT("[DSI]");
 	return 0;
 
 fail:
@@ -810,7 +813,9 @@ static struct platform_driver dsi_phy_platform_driver = {
 
 void __init msm_dsi_phy_driver_register(void)
 {
+	MSM_FUNC_ENTER("[DSI] phy register");
 	platform_driver_register(&dsi_phy_platform_driver);
+	MSM_FUNC_EXIT("[DSI] phy register");
 }
 
 void __exit msm_dsi_phy_driver_unregister(void)

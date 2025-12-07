@@ -226,6 +226,7 @@ struct msm_drm_private {
 	struct {
 		unsigned long size;
 		dma_addr_t paddr;
+		void *vaddr;
 		/* NOTE: mm managed at the page level, size is in # of pages
 		 * and position mm_node->start is in # of pages:
 		 */

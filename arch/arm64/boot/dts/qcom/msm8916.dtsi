@@ -94,10 +94,6 @@
 			no-map;
 			reg = <0 0x8ea00000 0 0x100000>;
 		};
-
-		mdss_mem: mdss_mem@8eb00000 {
-			reg = <0 0x8eb00000 0 0x1000000>;
-		};
 	};
 
 	clocks {
@@ -970,7 +966,6 @@
 			ranges;
 
 			qcom,use-vram-carveout;
-			memory-region = <&mdss_mem>;
 
 			mdp: mdp@1a01000 {
 				compatible = "qcom,mdp5";

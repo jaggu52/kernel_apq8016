@@ -72,7 +72,7 @@ module_param(fbdev, bool, 0600);
 #endif
 
 static char *vram = "16m";
-MODULE_PARM_DESC(vram, "Configure VRAM size (for devices without IOMMU/GPUMMU)");
+MODULE_PARM_DESC(vram, "Configure VRAM size (for devices without IOMMU/GPUMMU).");
 module_param(vram, charp, 0);
 
 bool dumpstate = false;
@@ -83,6 +83,7 @@ static bool modeset = true;
 MODULE_PARM_DESC(modeset, "Use kernel modesetting [KMS] (1=on (default), 0=disable)");
 module_param(modeset, bool, 0600);
 
+static void msm_release_vram(struct drm_device *dev);
 /*
  * Util/helpers:
  */
@@ -436,12 +437,7 @@ static int msm_drm_uninit(struct device *dev)
 	if (kms && kms->funcs)
 		kms->funcs->destroy(kms);
 
-	if (priv->vram.paddr) {
-		unsigned long attrs = DMA_ATTR_NO_KERNEL_MAPPING;
-		drm_mm_takedown(&priv->vram.mm);
-		dma_free_attrs(dev, priv->vram.size, NULL,
-			       priv->vram.paddr, attrs);
-	}
+	msm_release_vram(ddev);
 
 	component_unbind_all(dev, ddev);
 
@@ -538,7 +534,7 @@ static int msm_init_vram(struct drm_device *dev)
 		 * mach-msm:
 		 */
 	} else if (!msm_use_mmu(dev)) {
-		DRM_INFO("using %s VRAM carveout\n", vram);
+		DRM_INFO("using %s cma memory\n", vram);
 		size = memparse(vram, NULL);
 	}
 
@@ -562,11 +558,12 @@ static int msm_init_vram(struct drm_device *dev)
 		p = dma_alloc_attrs(dev->dev, size,
 				&priv->vram.paddr, GFP_KERNEL, attrs);
 		if (!p) {
-			DRM_DEV_ERROR(dev->dev, "failed to allocate VRAM\n");
+			DRM_DEV_ERROR(dev->dev, "failed to allocate VRAM pool\n");
 			priv->vram.paddr = 0;
 			ret = -ENOMEM;
 			goto out;
 		}
+		priv->vram.vaddr = p;
 
 		DRM_DEV_INFO(dev->dev, "VRAM: %08x->%08x\n",
 				(uint32_t)priv->vram.paddr,
@@ -577,6 +574,26 @@ out:
 	status = ret;
 	MSM_FUNC_EXIT("ret=%d", status);
 	return status;
+}
+
+static void msm_release_vram(struct drm_device *dev)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+
+	if (!priv || !priv->vram.paddr)
+		return;
+
+	MSM_FUNC_ENTER("dev=%p", dev);
+	DRM_DEV_INFO(dev->dev, "Releasing VRAM pool @%pa size=%lu\n",
+		     &priv->vram.paddr, priv->vram.size);
+	drm_mm_takedown(&priv->vram.mm);
+	dma_free_attrs(dev->dev, priv->vram.size, priv->vram.vaddr,
+		       priv->vram.paddr,
+		       DMA_ATTR_NO_KERNEL_MAPPING | DMA_ATTR_WRITE_COMBINE);
+	priv->vram.paddr = 0;
+	priv->vram.vaddr = NULL;
+	priv->vram.size = 0;
+	MSM_FUNC_EXIT("");
 }
 
 static int msm_drm_init(struct device *dev, const struct drm_driver *drv)
@@ -806,6 +823,7 @@ err_msm_uninit:
 	msm_drm_uninit(dev);
 	return ret;
 err_destroy_mdss:
+	msm_release_vram(ddev);
 	if (mdss && mdss->funcs)
 		mdss->funcs->destroy(ddev);
 err_free_priv:

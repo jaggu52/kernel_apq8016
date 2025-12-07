@@ -1378,16 +1378,15 @@ struct drm_gem_object *msm_gem_new(struct drm_device *dev, uint32_t size, uint32
 
 	size = PAGE_ALIGN(size);
 
-	if (!msm_use_mmu(dev))
+	if (!msm_use_mmu(dev) && priv->vram.size)
 		use_vram = true;
 	else if ((flags & (MSM_BO_STOLEN | MSM_BO_SCANOUT)) && priv->vram.size)
 		use_vram = true;
 
-	if (GEM_WARN_ON(use_vram && !priv->vram.size))
-{
+	if (GEM_WARN_ON(use_vram && !priv->vram.size)) {
 		result = ERR_PTR(-EINVAL);
 		goto out_fail;
-}
+	}
 
 	/* Disallow zero sized objects as they make the underlying
 	 * infrastructure grumpy

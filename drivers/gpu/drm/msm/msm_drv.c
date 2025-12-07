@@ -477,6 +477,12 @@ bool msm_use_mmu(struct drm_device *dev)
 	bool use_mmu;
 
 	MSM_FUNC_ENTER("dev=%p", dev);
+
+	if (priv->disable_iommu) {
+		MSM_FUNC_EXIT("use_mmu=0 (disabled via DT)");
+		return false;
+	}
+
 	/* a2xx comes with its own MMU */
 	use_mmu = priv->is_a2xx || iommu_present(&platform_bus_type);
 	MSM_FUNC_EXIT("use_mmu=%d", use_mmu);
@@ -490,8 +496,15 @@ static int msm_init_vram(struct drm_device *dev)
 	unsigned long size = 0;
 	int ret = 0;
 	int status = 0;
+	bool use_vram_carveout;
 
 	MSM_FUNC_ENTER("dev=%p", dev);
+
+	use_vram_carveout = of_property_read_bool(dev->dev->of_node,
+						  "qcom,use-vram-carveout");
+	priv->disable_iommu = use_vram_carveout;
+	if (use_vram_carveout)
+		allow_vram_carveout = true;
 
 	/* In the device-tree world, we could have a 'memory-region'
 	 * phandle, which gives us a link to our "vram".  Allocating

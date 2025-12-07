@@ -1159,7 +1159,8 @@ static const struct mdp5_cfg_handler cfg_handlers_v3[] = {
 	{ .revision = 3, .config = { .hw = &sdm630_config } },
 };
 
-static struct mdp5_cfg_platform *mdp5_get_config(struct platform_device *dev);
+static struct mdp5_cfg_platform *mdp5_get_config(struct platform_device *dev,
+		struct msm_drm_private *priv);
 
 static void mdp5_cfg_dump_sub_block(const char *name,
 				 const struct mdp5_sub_block *block)
@@ -1369,6 +1370,7 @@ struct mdp5_cfg_handler *mdp5_cfg_init(struct mdp5_kms *mdp5_kms,
 {
 	struct drm_device *dev = mdp5_kms->dev;
 	struct platform_device *pdev = to_platform_device(dev->dev);
+	struct msm_drm_private *priv = dev->dev_private;
 	struct mdp5_cfg_handler *cfg_handler;
 	const struct mdp5_cfg_handler *cfg_handlers;
 	struct mdp5_cfg_platform *pconfig;
@@ -1419,7 +1421,7 @@ struct mdp5_cfg_handler *mdp5_cfg_init(struct mdp5_kms *mdp5_kms,
 	cfg_handler->revision = minor;
 	cfg_handler->config.hw = mdp5_cfg;
 
-	pconfig = mdp5_get_config(pdev);
+	pconfig = mdp5_get_config(pdev, priv);
 	memcpy(&cfg_handler->config.platform, pconfig, sizeof(*pconfig));
 
 	DBG("MDP5: %s hw config selected", mdp5_cfg->name);
@@ -1438,13 +1440,16 @@ fail:
 	return ERR_PTR(ret);
 }
 
-static struct mdp5_cfg_platform *mdp5_get_config(struct platform_device *dev)
+static struct mdp5_cfg_platform *mdp5_get_config(struct platform_device *dev,
+		struct msm_drm_private *priv)
 {
 	static struct mdp5_cfg_platform config = {};
 
 	MSM_FUNC_ENTER("pdev=%p", dev);
 	MDP5_DBG("get_config platform_dev=%p", dev);
-	config.iommu = iommu_domain_alloc(&platform_bus_type);
+	config.iommu = NULL;
+	if (!priv || !priv->disable_iommu)
+		config.iommu = iommu_domain_alloc(&platform_bus_type);
 	MDP5_DBG("iommu domain=%p", config.iommu);
 
 	MSM_FUNC_EXIT("config=%p", &config);

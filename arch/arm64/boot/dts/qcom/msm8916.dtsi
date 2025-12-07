@@ -94,6 +94,10 @@
 			no-map;
 			reg = <0 0x8ea00000 0 0x100000>;
 		};
+
+		mdss_mem: mdss_mem@8eb00000 {
+			reg = <0 0x8eb00000 0 0x1000000>;
+		};
 	};
 
 	clocks {
@@ -965,6 +969,9 @@
 			#size-cells = <1>;
 			ranges;
 
+			qcom,use-vram-carveout;
+			memory-region = <&mdss_mem>;
+
 			mdp: mdp@1a01000 {
 				compatible = "qcom,mdp5";
 				reg = <0x01a01000 0x89000>;
@@ -981,8 +988,6 @@
 					      "bus",
 					      "core",
 					      "vsync";
-
-				iommus = <&apps_iommu 4>;
 
 				ports {
 					#address-cells = <1>;
@@ -1194,6 +1199,7 @@
 			power-domains = <&gcc OXILI_GDSC>;
 			operating-points-v2 = <&gpu_opp_table>;
 			iommus = <&gpu_iommu 1>, <&gpu_iommu 2>;
+			qcom,use-vram-carveout;
 
 			gpu_opp_table: opp-table {
 				compatible = "operating-points-v2";
@@ -1245,13 +1251,6 @@
 			iommu-ctx@3000 {
 				compatible = "qcom,msm-iommu-v1-sec";
 				reg = <0x3000 0x1000>;
-				interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
-			};
-
-			// mdp_0:
-			iommu-ctx@4000 {
-				compatible = "qcom,msm-iommu-v1-ns";
-				reg = <0x4000 0x1000>;
 				interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			};
 

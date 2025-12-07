@@ -1106,6 +1106,9 @@ int dsi_tx_buf_alloc_6g(struct msm_dsi_host *msm_host, int size)
 	uint64_t iova;
 	u8 *data;
 
+	if (!priv->kms || !priv->kms->aspace)
+		return dsi_tx_buf_alloc_v2(msm_host, size);
+
 	data = msm_gem_kernel_new(dev, size, MSM_BO_WC,
 					priv->kms->aspace,
 					&msm_host->tx_gem_obj, &iova);
@@ -1164,6 +1167,9 @@ static void dsi_tx_buf_free(struct msm_dsi_host *msm_host)
 
 void *dsi_tx_buf_get_6g(struct msm_dsi_host *msm_host)
 {
+	if (!msm_host->tx_gem_obj)
+		return msm_host->tx_buf ? msm_host->tx_buf : ERR_PTR(-ENOMEM);
+
 	return msm_gem_get_vaddr(msm_host->tx_gem_obj);
 }
 
@@ -1174,7 +1180,8 @@ void *dsi_tx_buf_get_v2(struct msm_dsi_host *msm_host)
 
 void dsi_tx_buf_put_6g(struct msm_dsi_host *msm_host)
 {
-	msm_gem_put_vaddr(msm_host->tx_gem_obj);
+	if (msm_host->tx_gem_obj)
+		msm_gem_put_vaddr(msm_host->tx_gem_obj);
 }
 
 /*
@@ -1281,6 +1288,9 @@ int dsi_dma_base_get_6g(struct msm_dsi_host *msm_host, uint64_t *dma_base)
 
 	if (!dma_base)
 		return -EINVAL;
+
+	if (!priv->kms || !priv->kms->aspace)
+		return dsi_dma_base_get_v2(msm_host, dma_base);
 
 	return msm_gem_get_and_pin_iova(msm_host->tx_gem_obj,
 				priv->kms->aspace, dma_base);

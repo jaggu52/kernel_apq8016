@@ -1398,10 +1398,10 @@ static const struct drm_driver msm_driver = {
 	.lastclose          = drm_fb_helper_lastclose,
 	.dumb_create        = msm_gem_dumb_create,
 	.dumb_map_offset    = msm_gem_dumb_map_offset,
-	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
-	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
-	.gem_prime_import_sg_table = msm_gem_prime_import_sg_table,
-	.gem_prime_mmap     = drm_gem_prime_mmap,
+	//.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
+	//.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+	//.gem_prime_import_sg_table = msm_gem_prime_import_sg_table,
+	//.gem_prime_mmap     = drm_gem_prime_mmap,
 #ifdef CONFIG_DEBUG_FS
 	.debugfs_init       = msm_debugfs_init,
 #endif

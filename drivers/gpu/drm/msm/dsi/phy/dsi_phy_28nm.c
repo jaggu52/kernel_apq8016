@@ -707,6 +707,7 @@ static int dsi_28nm_phy_enable(struct msm_dsi_phy *phy,
 	void __iomem *base = phy->base;
 	u32 val;
 
+	MSM_FUNC_ENTER("APQ8016 dsi phy\n");
 	DBG("");
 
 	if (msm_dsi_dphy_timing_calc(timing, clk_req)) {

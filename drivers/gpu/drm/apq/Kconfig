@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config DRM_APQ
+	tristate "APQ DRM"
+	depends on DRM
+	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
+	depends on DRM_KMS_HELPER
+	help
+	 DRM/KMS driver for APQ8016.

@@ -14,8 +14,7 @@
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
 
-#include "msm_drv.h"
-#include "disp/msm_disp_snapshot.h"
+#include "apq_drv.h"
 
 #define DSI_0	0
 #define DSI_1	1

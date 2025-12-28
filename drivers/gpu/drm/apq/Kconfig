@@ -7,3 +7,20 @@ config DRM_APQ
 	depends on DRM_KMS_HELPER
 	help
 	 DRM/KMS driver for APQ8016.
+
+config DRM_MSM_DSI
+	bool "Enable DSI support in MSM DRM driver"
+	depends on DRM_MSM
+	select DRM_PANEL
+	select DRM_MIPI_DSI
+	default y
+	help
+	  Choose this option if you have a need for MIPI DSI connector
+	  support.
+
+config DRM_MSM_DSI_28NM_PHY
+	bool "Enable DSI 28nm PHY driver in MSM DRM"
+	depends on DRM_MSM_DSI
+	default y
+	help
+	  Choose this option if the 28nm DSI PHY is used on the platform.

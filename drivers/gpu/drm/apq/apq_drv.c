@@ -20,10 +20,17 @@ u32 apq_readl(const void __iomem *addr)
 	return readl(addr);
 }
 
-void __iomem *apq_ioremap(struct platform_device *pdev, const char *name)
+void apq_writel(u32 data, const void __iomem *addr)
+{
+	writel(data, addr);
+}
+
+void __iomem *apq_ioremap(struct platform_device *pdev, const char *name,
+			  phys_addr_t *psize)
 {
 	struct resource *res;
 	void __iomem *mapped;
+	unsigned long size;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
 	if (IS_ERR(res)) {
@@ -31,11 +38,15 @@ void __iomem *apq_ioremap(struct platform_device *pdev, const char *name)
 		return ERR_PTR(-ENODEV);
 	}
 
+	size = resource_size(res);
+
 	mapped = devm_platform_ioremap_resource_byname(pdev, name);
 	if (IS_ERR(mapped)) {
 		dev_err(&pdev->dev, "Failed to map IO %s resource\n", name);
 		return ERR_PTR(-ENODEV);
 	}
+
+	*psize = size;
 
 	dev_dbg(&pdev->dev,
 		 "IO:%s start = 0x%08llx - End = 0x%08llx mapped to 0x%p\n",
@@ -81,6 +92,8 @@ static int apq_drm_init(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ddev);
 
 	apq_mdp5_get_kms(apq_priv);
+
+	apq_get_dsi(apq_priv);
 
 	apq_modeset_init(apq_priv);
 
@@ -144,6 +157,8 @@ static int __init apq_drm_register(void)
 	pr_info("%s - %d\n", __func__, __LINE__);
 
 	apq_mdp_register();
+
+	msm_dsi_register();
 
 	return platform_driver_register(&apq_platform_driver);
 }

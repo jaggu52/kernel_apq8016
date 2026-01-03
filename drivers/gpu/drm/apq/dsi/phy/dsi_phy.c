@@ -8,6 +8,7 @@
 #include <dt-bindings/phy/phy.h>
 
 #include "dsi_phy.h"
+#include "apq_drv.h"
 
 #define S_DIV_ROUND_UP(n, d)	\
 	(((n) >= 0) ? (((n) + (d) - 1) / (d)) : (((n) - (d) + 1) / (d)))
@@ -614,6 +615,7 @@ static const struct of_device_id dsi_phy_dt_match[] = {
 	{ .compatible = "qcom,dsi-phy-28nm-lp",
 	  .data = &dsi_phy_28nm_lp_cfgs },
 #endif
+#if 0
 #ifdef CONFIG_DRM_MSM_DSI_20NM_PHY
 	{ .compatible = "qcom,dsi-phy-20nm",
 	  .data = &dsi_phy_20nm_cfgs },
@@ -641,6 +643,7 @@ static const struct of_device_id dsi_phy_dt_match[] = {
 	  .data = &dsi_phy_7nm_8150_cfgs },
 	{ .compatible = "qcom,sc7280-dsi-phy-7nm",
 	  .data = &dsi_phy_7nm_7280_cfgs },
+#endif
 #endif
 	{}
 };
@@ -676,7 +679,7 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 	u32 phy_type;
 	int ret;
 
-	MSM_FUNC_ENTER("[DSI]");
+	pr_info("[DSI]");
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy)
@@ -709,14 +712,14 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 	if (!of_property_read_u32(dev->of_node, "phy-type", &phy_type))
 		phy->cphy_mode = (phy_type == PHY_TYPE_CPHY);
 
-	phy->base = msm_ioremap_size(pdev, "dsi_phy", "DSI_PHY", &phy->base_size);
+	phy->base = apq_ioremap_size(pdev, "dsi_phy", "DSI_PHY", &phy->base_size);
 	if (IS_ERR(phy->base)) {
 		DRM_DEV_ERROR(dev, "%s: failed to map phy base\n", __func__);
 		ret = -ENOMEM;
 		goto fail;
 	}
 
-	phy->pll_base = msm_ioremap_size(pdev, "dsi_pll", "DSI_PLL", &phy->pll_size);
+	phy->pll_base = apq_ioremap_size(pdev, "dsi_pll", "DSI_PLL", &phy->pll_size);
 	if (IS_ERR(phy->pll_base)) {
 		DRM_DEV_ERROR(&pdev->dev, "%s: failed to map pll base\n", __func__);
 		ret = -ENOMEM;
@@ -724,7 +727,7 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 	}
 
 	if (phy->cfg->has_phy_lane) {
-		phy->lane_base = msm_ioremap_size(pdev, "dsi_phy_lane", "DSI_PHY_LANE", &phy->lane_size);
+		phy->lane_base = apq_ioremap_size(pdev, "dsi_phy_lane", "DSI_PHY_LANE", &phy->lane_size);
 		if (IS_ERR(phy->lane_base)) {
 			DRM_DEV_ERROR(&pdev->dev, "%s: failed to map phy lane base\n", __func__);
 			ret = -ENOMEM;
@@ -733,7 +736,7 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 	}
 
 	if (phy->cfg->has_phy_regulator) {
-		phy->reg_base = msm_ioremap_size(pdev, "dsi_phy_regulator", "DSI_PHY_REG", &phy->reg_size);
+		phy->reg_base = apq_ioremap_size(pdev, "dsi_phy_regulator", "DSI_PHY_REG", &phy->reg_size);
 		if (IS_ERR(phy->reg_base)) {
 			DRM_DEV_ERROR(&pdev->dev, "%s: failed to map phy regulator base\n", __func__);
 			ret = -ENOMEM;
@@ -745,7 +748,7 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail;
 
-	phy->ahb_clk = msm_clk_get(pdev, "iface");
+	phy->ahb_clk = apq_clk_get(pdev, "iface");
 	if (IS_ERR(phy->ahb_clk)) {
 		DRM_DEV_ERROR(dev, "%s: Unable to get ahb clk\n", __func__);
 		ret = PTR_ERR(phy->ahb_clk);
@@ -796,7 +799,7 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, phy);
 
-	MSM_FUNC_EXIT("[DSI]");
+	pr_info("[DSI]");
 	return 0;
 
 fail:
@@ -813,9 +816,9 @@ static struct platform_driver dsi_phy_platform_driver = {
 
 void __init msm_dsi_phy_driver_register(void)
 {
-	MSM_FUNC_ENTER("[DSI] phy register");
+	pr_info("[DSI] phy register");
 	platform_driver_register(&dsi_phy_platform_driver);
-	MSM_FUNC_EXIT("[DSI] phy register");
+	pr_info("[DSI] phy register");
 }
 
 void __exit msm_dsi_phy_driver_unregister(void)
@@ -945,6 +948,7 @@ int msm_dsi_phy_pll_restore_state(struct msm_dsi_phy *phy)
 	return 0;
 }
 
+#if 0
 void msm_dsi_phy_snapshot(struct msm_disp_state *disp_state, struct msm_dsi_phy *phy)
 {
 	msm_disp_snapshot_add_block(disp_state,
@@ -967,3 +971,4 @@ void msm_dsi_phy_snapshot(struct msm_disp_state *disp_state, struct msm_dsi_phy 
 			phy->reg_size, phy->reg_base,
 			"dsi%d_reg", phy->id);
 }
+#endif

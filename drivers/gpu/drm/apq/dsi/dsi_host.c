@@ -20,14 +20,14 @@
 #include <linux/spinlock.h>
 
 #include <video/mipi_display.h>
+#include <drm/drm_probe_helper.h>
 
 #include "dsi.h"
 #include "dsi.xml.h"
 #include "sfpb.xml.h"
 #include "dsi_cfg.h"
-#include "msm_kms.h"
-#include "msm_gem.h"
 #include "phy/dsi_phy.h"
+#include "apq_drv.h"
 
 #define DSI_RESET_TOGGLE_DELAY_MS 20
 
@@ -35,7 +35,7 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
 {
 	u32 ver;
 
-	DSI_HOST_DBG("Getting DSI version");
+	pr_info("Getting DSI version");
 
 	if (!major || !minor)
 		return -EINVAL;
@@ -51,7 +51,7 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
 	 * scratch register which we never touch)
 	 */
 
-	ver = msm_readl(base + REG_DSI_VERSION);
+	ver = apq_readl(base + REG_DSI_VERSION);
 	printk(KERN_DEBUG "IO:R DSI CTRL base - 0x01a98000 offset - 0x%08x data - %08x\n", REG_DSI_VERSION, ver);
 	if (ver) {
 		/* older dsi host, there is no register shift */
@@ -70,12 +70,12 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
 		 * registers are shifted down, read DSI_VERSION again with
 		 * the shifted offset
 		 */
-		ver = msm_readl(base + DSI_6G_REG_SHIFT + REG_DSI_VERSION);
+		ver = apq_readl(base + DSI_6G_REG_SHIFT + REG_DSI_VERSION);
 		ver = FIELD(ver, DSI_VERSION_MAJOR);
 		if (ver == MSM_DSI_VER_MAJOR_6G) {
 			/* 6G version */
 			*major = ver;
-			*minor = msm_readl(base + REG_DSI_6G_HW_VERSION);
+			*minor = apq_readl(base + REG_DSI_6G_HW_VERSION);
 			return 0;
 		} else {
 			return -EINVAL;
@@ -197,14 +197,14 @@ static inline u32 dsi_read(struct msm_dsi_host *msm_host, u32 reg)
 {
 	u32 data;
 
-	data = msm_readl(msm_host->ctrl_base + reg);
+	data = apq_readl(msm_host->ctrl_base + reg);
 	printk(KERN_DEBUG "IO:R DSI CTRL base - 0x01a98000 offset - 0x%08x data - %08x\n", reg, data);
 	return data;
 }
 static inline void dsi_write(struct msm_dsi_host *msm_host, u32 reg, u32 data)
 {
 	printk(KERN_DEBUG "IO:W DSI CTRL base - 0x01a98000 offset - 0x%08x data - %08x\n", reg, data);
-	msm_writel(data, msm_host->ctrl_base + reg);
+	apq_writel(data, msm_host->ctrl_base + reg);
 }
 
 static int dsi_host_regulator_enable(struct msm_dsi_host *msm_host);
@@ -219,7 +219,7 @@ static const struct msm_dsi_cfg_handler *dsi_get_config(
 	int ret;
 	u32 major = 0, minor = 0;
 
-	ahb_clk = msm_clk_get(msm_host->pdev, "iface");
+	ahb_clk = apq_clk_get(msm_host->pdev, "iface");
 	if (IS_ERR(ahb_clk)) {
 		pr_err("%s: cannot get interface clock\n", __func__);
 		goto exit;
@@ -331,7 +331,7 @@ int dsi_clk_init_v2(struct msm_dsi_host *msm_host)
 	struct platform_device *pdev = msm_host->pdev;
 	int ret = 0;
 
-	msm_host->src_clk = msm_clk_get(pdev, "src");
+	msm_host->src_clk = apq_clk_get(pdev, "src");
 
 	if (IS_ERR(msm_host->src_clk)) {
 		ret = PTR_ERR(msm_host->src_clk);
@@ -364,7 +364,7 @@ int dsi_clk_init_6g_v2(struct msm_dsi_host *msm_host)
 	struct platform_device *pdev = msm_host->pdev;
 	int ret = 0;
 
-	msm_host->byte_intf_clk = msm_clk_get(pdev, "byte_intf");
+	msm_host->byte_intf_clk = apq_clk_get(pdev, "byte_intf");
 	if (IS_ERR(msm_host->byte_intf_clk)) {
 		ret = PTR_ERR(msm_host->byte_intf_clk);
 		pr_err("%s: can't find byte_intf clock. ret=%d\n",
@@ -383,7 +383,7 @@ static int dsi_clk_init(struct msm_dsi_host *msm_host)
 
 	/* get bus clocks */
 	for (i = 0; i < cfg->num_bus_clks; i++) {
-		msm_host->bus_clks[i] = msm_clk_get(pdev,
+		msm_host->bus_clks[i] = apq_clk_get(pdev,
 						cfg->bus_clk_names[i]);
 		if (IS_ERR(msm_host->bus_clks[i])) {
 			ret = PTR_ERR(msm_host->bus_clks[i]);
@@ -394,7 +394,7 @@ static int dsi_clk_init(struct msm_dsi_host *msm_host)
 	}
 
 	/* get link and source clocks */
-	msm_host->byte_clk = msm_clk_get(pdev, "byte");
+	msm_host->byte_clk = apq_clk_get(pdev, "byte");
 	if (IS_ERR(msm_host->byte_clk)) {
 		ret = PTR_ERR(msm_host->byte_clk);
 		pr_err("%s: can't find dsi_byte clock. ret=%d\n",
@@ -403,7 +403,7 @@ static int dsi_clk_init(struct msm_dsi_host *msm_host)
 		goto exit;
 	}
 
-	msm_host->pixel_clk = msm_clk_get(pdev, "pixel");
+	msm_host->pixel_clk = apq_clk_get(pdev, "pixel");
 	if (IS_ERR(msm_host->pixel_clk)) {
 		ret = PTR_ERR(msm_host->pixel_clk);
 		pr_err("%s: can't find dsi_pixel clock. ret=%d\n",
@@ -412,7 +412,7 @@ static int dsi_clk_init(struct msm_dsi_host *msm_host)
 		goto exit;
 	}
 
-	msm_host->esc_clk = msm_clk_get(pdev, "core");
+	msm_host->esc_clk = apq_clk_get(pdev, "core");
 	if (IS_ERR(msm_host->esc_clk)) {
 		ret = PTR_ERR(msm_host->esc_clk);
 		pr_err("%s: can't find dsi_esc clock. ret=%d\n",
@@ -498,11 +498,9 @@ int msm_dsi_runtime_resume(struct device *dev)
 	struct mipi_dsi_host *host = msm_dsi->host;
 	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
 
-	MSM_FUNC_ENTER("[DSI]");
 	if (!msm_host->cfg_hnd)
 		return 0;
 
-	MSM_FUNC_EXIT("[DSI]");
 	return dsi_bus_clk_enable(msm_host);
 }
 
@@ -1102,13 +1100,14 @@ static void dsi_wait4video_eng_busy(struct msm_dsi_host *msm_host)
 int dsi_tx_buf_alloc_6g(struct msm_dsi_host *msm_host, int size)
 {
 	struct drm_device *dev = msm_host->dev;
-	struct msm_drm_private *priv = dev->dev_private;
+	//struct msm_drm_private *priv = dev->dev_private;
 	uint64_t iova;
 	u8 *data;
 
-	if (!priv->kms || !priv->kms->aspace)
-		return dsi_tx_buf_alloc_v2(msm_host, size);
+	//if (!priv->kms || !priv->kms->aspace)
+	return dsi_tx_buf_alloc_v2(msm_host, size);
 
+#if 0
 	data = msm_gem_kernel_new(dev, size, MSM_BO_WC,
 					priv->kms->aspace,
 					&msm_host->tx_gem_obj, &iova);
@@ -1121,7 +1120,7 @@ int dsi_tx_buf_alloc_6g(struct msm_dsi_host *msm_host, int size)
 	msm_gem_object_set_name(msm_host->tx_gem_obj, "tx_gem");
 
 	msm_host->tx_size = msm_host->tx_gem_obj->size;
-
+#endif
 	return 0;
 }
 
@@ -1142,6 +1141,7 @@ int dsi_tx_buf_alloc_v2(struct msm_dsi_host *msm_host, int size)
 static void dsi_tx_buf_free(struct msm_dsi_host *msm_host)
 {
 	struct drm_device *dev = msm_host->dev;
+#if 0
 	struct msm_drm_private *priv;
 
 	/*
@@ -1159,7 +1159,7 @@ static void dsi_tx_buf_free(struct msm_dsi_host *msm_host)
 		drm_gem_object_put(msm_host->tx_gem_obj);
 		msm_host->tx_gem_obj = NULL;
 	}
-
+#endif
 	if (msm_host->tx_buf)
 		dma_free_coherent(dev->dev, msm_host->tx_size, msm_host->tx_buf,
 			msm_host->tx_buf_paddr);
@@ -1167,10 +1167,10 @@ static void dsi_tx_buf_free(struct msm_dsi_host *msm_host)
 
 void *dsi_tx_buf_get_6g(struct msm_dsi_host *msm_host)
 {
-	if (!msm_host->tx_gem_obj)
-		return msm_host->tx_buf ? msm_host->tx_buf : ERR_PTR(-ENOMEM);
+	//if (!msm_host->tx_gem_obj)
+	return msm_host->tx_buf ? msm_host->tx_buf : ERR_PTR(-ENOMEM);
 
-	return msm_gem_get_vaddr(msm_host->tx_gem_obj);
+	//return msm_gem_get_vaddr(msm_host->tx_gem_obj);
 }
 
 void *dsi_tx_buf_get_v2(struct msm_dsi_host *msm_host)
@@ -1180,8 +1180,8 @@ void *dsi_tx_buf_get_v2(struct msm_dsi_host *msm_host)
 
 void dsi_tx_buf_put_6g(struct msm_dsi_host *msm_host)
 {
-	if (msm_host->tx_gem_obj)
-		msm_gem_put_vaddr(msm_host->tx_gem_obj);
+	//if (msm_host->tx_gem_obj)
+	//	msm_gem_put_vaddr(msm_host->tx_gem_obj);
 }
 
 /*
@@ -1284,16 +1284,19 @@ static int dsi_long_read_resp(u8 *buf, const struct mipi_dsi_msg *msg)
 int dsi_dma_base_get_6g(struct msm_dsi_host *msm_host, uint64_t *dma_base)
 {
 	struct drm_device *dev = msm_host->dev;
-	struct msm_drm_private *priv = dev->dev_private;
+	//struct msm_drm_private *priv = dev->dev_private;
 
 	if (!dma_base)
 		return -EINVAL;
 
-	if (!priv->kms || !priv->kms->aspace)
-		return dsi_dma_base_get_v2(msm_host, dma_base);
+	//if (!priv->kms || !priv->kms->aspace)
+	return dsi_dma_base_get_v2(msm_host, dma_base);
 
+	return -EINVAL;
+#if 0
 	return msm_gem_get_and_pin_iova(msm_host->tx_gem_obj,
 				priv->kms->aspace, dma_base);
+#endif
 }
 
 int dsi_dma_base_get_v2(struct msm_dsi_host *msm_host, uint64_t *dma_base)
@@ -1863,7 +1866,7 @@ int msm_dsi_host_init(struct msm_dsi *msm_dsi)
 		goto fail;
 	}
 
-	msm_host->ctrl_base = msm_ioremap_size(pdev, "dsi_ctrl", "DSI CTRL", &msm_host->ctrl_size);
+	msm_host->ctrl_base = apq_ioremap_size(pdev, "dsi_ctrl", "DSI CTRL", &msm_host->ctrl_size);
 	if (IS_ERR(msm_host->ctrl_base)) {
 		pr_err("%s: unable to map Dsi ctrl base\n", __func__);
 		ret = PTR_ERR(msm_host->ctrl_base);
@@ -2532,6 +2535,7 @@ struct drm_bridge *msm_dsi_host_get_bridge(struct mipi_dsi_host *host)
 	return of_drm_find_bridge(msm_host->device_node);
 }
 
+#if 0
 void msm_dsi_host_snapshot(struct msm_disp_state *disp_state, struct mipi_dsi_host *host)
 {
 	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
@@ -2543,6 +2547,7 @@ void msm_dsi_host_snapshot(struct msm_disp_state *disp_state, struct mipi_dsi_ho
 
 	//pm_runtime_put_sync(&msm_host->pdev->dev);
 }
+#endif
 
 static void msm_dsi_host_video_test_pattern_setup(struct msm_dsi_host *msm_host)
 {

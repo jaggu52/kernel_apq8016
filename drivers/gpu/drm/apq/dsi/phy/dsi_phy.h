@@ -11,11 +11,12 @@
 #include <linux/regulator/consumer.h>
 
 #include "dsi.h"
+#include "apq_drv.h"
 
-#define dsi_phy_read(offset) msm_readl((offset))
-#define dsi_phy_write(offset, data) msm_writel((data), (offset))
-#define dsi_phy_write_udelay(offset, data, delay_us) { msm_writel((data), (offset)); udelay(delay_us); }
-#define dsi_phy_write_ndelay(offset, data, delay_ns) { msm_writel((data), (offset)); ndelay(delay_ns); }
+#define dsi_phy_read(offset) apq_readl((offset))
+#define dsi_phy_write(offset, data) apq_writel((data), (offset))
+#define dsi_phy_write_udelay(offset, data, delay_us) { apq_writel((data), (offset)); udelay(delay_us); }
+#define dsi_phy_write_ndelay(offset, data, delay_ns) { apq_writel((data), (offset)); ndelay(delay_ns); }
 
 struct msm_dsi_phy_ops {
 	int (*pll_init)(struct msm_dsi_phy *phy);

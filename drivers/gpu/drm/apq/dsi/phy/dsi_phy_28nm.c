@@ -124,7 +124,7 @@ static int dsi_pll_28nm_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 rem;
 	int i;
 
-	VERB("rate=%lu, parent's=%lu", rate, parent_rate);
+	pr_info("rate=%lu, parent's=%lu", rate, parent_rate);
 
 	/* Force postdiv2 to be div-4 */
 	dsi_phy_write(base + REG_DSI_28nm_PHY_PLL_POSTDIV2_CFG, 3);
@@ -246,7 +246,7 @@ static unsigned long dsi_pll_28nm_clk_recalc_rate(struct clk_hw *hw,
 	u32 ref_clk = VCO_REF_CLK_RATE;
 	unsigned long vco_rate;
 
-	VERB("parent_rate=%lu", parent_rate);
+	pr_info("parent_rate=%lu", parent_rate);
 
 	/* Check to see if the ref clk doubler is enabled */
 	doubler = dsi_phy_read(base + REG_DSI_28nm_PHY_PLL_REFCLK_CFG) &
@@ -707,7 +707,7 @@ static int dsi_28nm_phy_enable(struct msm_dsi_phy *phy,
 	void __iomem *base = phy->base;
 	u32 val;
 
-	MSM_FUNC_ENTER("APQ8016 dsi phy\n");
+	pr_info("APQ8016 dsi phy\n");
 	DBG("");
 
 	if (msm_dsi_dphy_timing_calc(timing, clk_req)) {
@@ -768,6 +768,7 @@ static void dsi_28nm_phy_disable(struct msm_dsi_phy *phy)
 	wmb();
 }
 
+//this is used
 const struct msm_dsi_phy_cfg dsi_phy_28nm_hpm_cfgs = {
 	.has_phy_regulator = true,
 	.reg_cfg = {

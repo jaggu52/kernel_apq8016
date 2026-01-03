@@ -101,6 +101,7 @@ int mdp5_pdev_probe(struct platform_device *pdev)
 {
 	u32 major, minor;
 	int ret;
+	phys_addr_t size;
 
 	dev_info(&pdev->dev, "APQ8016 HW has MDP5!\n");
 
@@ -112,7 +113,7 @@ int mdp5_pdev_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mdp5_kms);
 
-	mdp5_kms->mmio = apq_ioremap(pdev, "mdp_phys");
+	mdp5_kms->mmio = apq_ioremap(pdev, "mdp_phys", &size);
 	if (IS_ERR(mdp5_kms->mmio)) {
 		ret = PTR_ERR(mdp5_kms->mmio);
 		return ret;

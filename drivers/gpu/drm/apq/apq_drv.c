@@ -6,6 +6,8 @@
  * For understanding DRM framework
  */
 
+#include <drm/drm_drv.h>
+
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
@@ -54,6 +56,47 @@ int apq_get_clk(struct platform_device *pdev, struct clk **clkp,
 	return 0;
 }
 
+static const struct drm_driver apq_driver = {
+	.driver_features = DRIVER_MODESET,
+	.name = "apq8016",
+	.desc = "Understanding drm driver",
+	.date = "20260102",
+	.major = 0,
+	.minor = 1,
+};
+
+static int apq_drm_init(struct platform_device *pdev)
+{
+	struct apq_drm_private *apq_priv;
+	struct drm_device *ddev;
+	int ret;
+
+	apq_priv = devm_drm_dev_alloc(&pdev->dev, &apq_driver,
+				      struct apq_drm_private, ddev);
+	if (IS_ERR(apq_priv))
+		return PTR_ERR(apq_priv);
+
+	ddev = &apq_priv->ddev;
+
+	platform_set_drvdata(pdev, ddev);
+
+	apq_mdp5_get_kms(apq_priv);
+
+	apq_modeset_init(apq_priv);
+
+	ret = drmm_mode_config_init(ddev);
+	if (ret)
+		return ret;
+
+	ret = drm_dev_register(ddev, 0);
+	if (ret)
+		return ret;
+
+	drm_mode_config_reset(ddev);
+
+	return 0;
+}
+
 static int apq_pdev_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -70,6 +113,8 @@ static int apq_pdev_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to populate children: %d\n", ret);
 		return ret;
 	}
+
+	ret = apq_drm_init(pdev);
 
 	return ret;
 }

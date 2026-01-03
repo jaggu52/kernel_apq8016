@@ -6,6 +6,8 @@
  * For understanding DRM framework
  */
 
+#include <drm/drm_device.h>
+#include <drm/drm_print.h>
 #include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
@@ -14,6 +16,7 @@
 #include "apq_drv.h"
 #include "mdp5_kms.h"
 #include "mdp5_xml.h"
+#include "mdp5_cfg.h"
 
 int mdp5_enable(struct mdp5_kms *mdp5_kms)
 {
@@ -40,9 +43,62 @@ void mdp5_read_hw_rev(struct mdp5_kms *mdp5_kms, u32 *major, u32 *minor)
 		*major, *minor);
 }
 
+int mdp5_construct_encoder(struct mdp5_kms *mdp5_kms)
+{
+	struct drm_device *ddev = mdp5_kms->ddev;
+	struct apq_drm_private *apq_priv = container_of(ddev,
+							struct apq_drm_private,
+							ddev);
+	int ret;
+	struct drm_encoder *encoder;
+
+	encoder = mdp5_encoder_init(mdp5_kms);
+
+	apq_priv->encoder = encoder;
+
+	return 0;
+}
+
+int mdp5_init_intf(struct mdp5_kms *mdp_kms)
+{
+	int ret;
+
+	ret = mdp5_construct_encoder(mdp_kms);
+	if (ret)
+		return ret;
+
+	//ret = mdp5_init_intf_mipi();
+	//if (ret)
+	//	return ret;
+
+	return 0;
+}
+
+int apq_modeset_init(struct apq_drm_private *priv)
+{
+	int ret;
+
+	drm_dbg(&priv->ddev, "%s - %d\n", __func__, __LINE__);
+
+	ret = mdp5_init_intf(priv->mdp5_kms);
+	if (ret) {
+		drm_err(&priv->ddev, "Failed to init intf - %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+//remove this step, use component framework
+struct mdp5_kms *mdp5_kms;
+void apq_mdp5_get_kms(struct apq_drm_private *priv)
+{
+	mdp5_kms->ddev = &priv->ddev;
+	priv->mdp5_kms = mdp5_kms;
+}
+
 int mdp5_pdev_probe(struct platform_device *pdev)
 {
-	struct mdp5_kms *mdp5_kms;
 	u32 major, minor;
 	int ret;
 
@@ -73,6 +129,10 @@ int mdp5_pdev_probe(struct platform_device *pdev)
 	mdp5_enable(mdp5_kms);
 
 	mdp5_read_hw_rev(mdp5_kms, &major, &minor);
+
+	ret = mdp5_cfg_init(mdp5_kms);
+	if (ret)
+		return ret;
 
 	return 0;
 }

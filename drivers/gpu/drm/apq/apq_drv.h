@@ -9,9 +9,12 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/io.h>
-#
+#include <drm/drm_device.h>
+
 struct apq_drm_private {
-	struct drm_device *dev;
+	struct drm_device ddev;
+	struct mdp5_kms *mdp5_kms;
+	struct drm_encoder *encoder;
 };
 
 void apq_mdp_register(void);
@@ -20,5 +23,7 @@ int apq_get_clk(struct platform_device *pdev, struct clk **clkp,
 		const char *name);
 u32 apq_readl(const void __iomem *addr);
 void __iomem *apq_ioremap(struct platform_device *pdev, const char *name);
+void apq_mdp5_get_kms(struct apq_drm_private *priv);
+int apq_modeset_init(struct apq_drm_private *priv);
 
 #endif

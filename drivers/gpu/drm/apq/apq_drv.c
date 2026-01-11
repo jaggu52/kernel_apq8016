@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
 #include <linux/of_platform.h>
+#include <linux/atomic.h>
 
 #include "apq_drv.h"
 
@@ -76,6 +77,11 @@ static const struct drm_driver apq_driver = {
 	.minor = 1,
 };
 
+static struct platform_device *apq_master_pdev;
+static atomic_t apq_subdevs_probed = ATOMIC_INIT(0);
+static atomic_t apq_drm_inited = ATOMIC_INIT(0);
+#define APQ_SUBDEV_EXPECTED 2
+
 static int apq_drm_init(struct platform_device *pdev)
 {
 	struct apq_drm_private *apq_priv;
@@ -110,11 +116,40 @@ static int apq_drm_init(struct platform_device *pdev)
 	return 0;
 }
 
+int apq_subdev_probe_done(struct device *dev)
+{
+	int count;
+	int ret;
+
+	if (!apq_master_pdev)
+		return -ENODEV;
+
+	count = atomic_inc_return(&apq_subdevs_probed);
+	dev_dbg(dev, "apq subdevice probed (%d/%d)\n",
+		count, APQ_SUBDEV_EXPECTED);
+
+	if (count != APQ_SUBDEV_EXPECTED)
+		return 0;
+
+	if (atomic_xchg(&apq_drm_inited, 1))
+		return 0;
+
+	ret = apq_drm_init(apq_master_pdev);
+	if (ret)
+		dev_err(&apq_master_pdev->dev,
+			"DRM init failed after subdevices: %d\n", ret);
+
+	return ret;
+}
+
 static int apq_pdev_probe(struct platform_device *pdev)
 {
 	int ret;
 
 	dev_info(&pdev->dev, "%s - %d\n", __func__, __LINE__);
+	apq_master_pdev = pdev;
+	atomic_set(&apq_subdevs_probed, 0);
+	atomic_set(&apq_drm_inited, 0);
 
 	/*
 	 * Create platform devices for child nodes like MDP5/DSI.
@@ -126,8 +161,6 @@ static int apq_pdev_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to populate children: %d\n", ret);
 		return ret;
 	}
-
-	//ret = apq_drm_init(pdev);
 
 	return ret;
 }

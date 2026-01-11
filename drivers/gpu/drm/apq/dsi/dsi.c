@@ -207,11 +207,13 @@ int apq_get_dsi(struct apq_drm_private *apq_priv)
 
 static int dsi_dev_probe(struct platform_device *ppdev)
 {
-	int ret;
+	int ret = 0;
 
 	pr_info("%s - %d\n", __func__, __LINE__);
 	pdev = ppdev;
 	//ret = component_add(&pdev->dev, &dsi_ops);
+	if (!ret)
+		ret = apq_subdev_probe_done(&ppdev->dev);
 
 	return ret;
 }

@@ -158,7 +158,7 @@ int mdp5_pdev_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	return 0;
+	return apq_subdev_probe_done(&pdev->dev);
 }
 
 int mdp5_pdev_remove(struct platform_device *pdev)

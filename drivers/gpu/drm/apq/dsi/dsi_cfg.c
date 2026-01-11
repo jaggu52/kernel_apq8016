@@ -49,6 +49,7 @@ static const char * const dsi_8916_bus_clk_names[] = {
 	"mdp_core", "iface", "bus",
 };
 
+//this is used
 static const struct msm_dsi_config msm8916_dsi_cfg = {
 	.io_offset = DSI_6G_REG_SHIFT,
 	.reg_cfg = {
@@ -262,6 +263,7 @@ static const struct msm_dsi_cfg_handler dsi_cfg_handlers[] = {
 		&msm8974_apq8084_dsi_cfg, &msm_dsi_6g_host_ops},
 	{MSM_DSI_VER_MAJOR_6G, MSM_DSI_6G_VER_MINOR_V1_3,
 		&msm8994_dsi_cfg, &msm_dsi_6g_host_ops},
+	//this is used
 	{MSM_DSI_VER_MAJOR_6G, MSM_DSI_6G_VER_MINOR_V1_3_1,
 		&msm8916_dsi_cfg, &msm_dsi_6g_host_ops},
 	{MSM_DSI_VER_MAJOR_6G, MSM_DSI_6G_VER_MINOR_V1_4_1,

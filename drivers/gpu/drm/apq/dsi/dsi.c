@@ -209,6 +209,7 @@ static int dsi_dev_probe(struct platform_device *ppdev)
 {
 	int ret;
 
+	pr_info("%s - %d\n", __func__, __LINE__);
 	pdev = ppdev;
 	//ret = component_add(&pdev->dev, &dsi_ops);
 
@@ -247,6 +248,7 @@ static struct platform_driver dsi_driver = {
 
 void __init msm_dsi_register(void)
 {
+	pr_info("%s - %d\n", __func__, __LINE__);
 	msm_dsi_phy_driver_register();
 	platform_driver_register(&dsi_driver);
 }
@@ -258,11 +260,10 @@ void __exit msm_dsi_unregister(void)
 	platform_driver_unregister(&dsi_driver);
 }
 
-#if 0
 int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
 			 struct drm_encoder *encoder)
 {
-	struct msm_drm_private *priv;
+	struct apq_drm_private *priv;
 	struct drm_bridge *ext_bridge;
 	int ret;
 
@@ -271,7 +272,8 @@ int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
 		return -EINVAL;
 	}
 
-	priv = dev->dev_private;
+	priv = container_of(dev, struct apq_drm_private, ddev);
+
 	msm_dsi->dev = dev;
 
 	ret = msm_dsi_host_modeset_init(msm_dsi->host, dev);
@@ -301,9 +303,9 @@ int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
 	if (ext_bridge)
 		msm_dsi->connector =
 			msm_dsi_manager_ext_bridge_init(msm_dsi->id);
-	else
-		msm_dsi->connector =
-			msm_dsi_manager_connector_init(msm_dsi->id);
+	//else
+	//	msm_dsi->connector =
+	//		msm_dsi_manager_connector_init(msm_dsi->id);
 
 	if (IS_ERR(msm_dsi->connector)) {
 		ret = PTR_ERR(msm_dsi->connector);
@@ -313,8 +315,10 @@ int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
 		goto fail;
 	}
 
-	priv->bridges[priv->num_bridges++]       = msm_dsi->bridge;
-	priv->connectors[priv->num_connectors++] = msm_dsi->connector;
+	//priv->bridges[priv->num_bridges++]       = msm_dsi->bridge;
+	//priv->connectors[priv->num_connectors++] = msm_dsi->connector;
+	priv->bridges       = msm_dsi->bridge;
+	priv->connectors = msm_dsi->connector;
 
 	ret = 0;
 	goto out;
@@ -334,7 +338,6 @@ fail:
 out:
 	return ret;
 }
-#endif
 #if 0
 void msm_dsi_snapshot(struct msm_disp_state *disp_state, struct msm_dsi *msm_dsi)
 {

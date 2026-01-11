@@ -127,7 +127,7 @@ static int apq_pdev_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = apq_drm_init(pdev);
+	//ret = apq_drm_init(pdev);
 
 	return ret;
 }

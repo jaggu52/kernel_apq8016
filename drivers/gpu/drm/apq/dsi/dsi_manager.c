@@ -238,7 +238,9 @@ static int dsi_mgr_bridge_get_id(struct drm_bridge *bridge)
 #if 0
 static int msm_dsi_manager_panel_init(struct drm_connector *conn, u8 id)
 {
-	struct msm_drm_private *priv = conn->dev->dev_private;
+	struct apq_drm_private *priv = container_of(conn->dev,
+						    struct apq_drm_private,
+						    ddev);
 	struct msm_kms *kms = priv->kms;
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
 	struct msm_dsi *other_dsi = dsi_mgr_get_other_dsi(id);
@@ -310,6 +312,7 @@ static void dsi_mgr_connector_destroy(struct drm_connector *connector)
 	kfree(dsi_connector);
 }
 
+#if 0
 static int dsi_mgr_connector_get_modes(struct drm_connector *connector)
 {
 	int id = dsi_mgr_connector_get_id(connector);
@@ -331,7 +334,6 @@ static int dsi_mgr_connector_get_modes(struct drm_connector *connector)
 	return num;
 }
 
-#if 0
 static enum drm_mode_status dsi_mgr_connector_mode_valid(struct drm_connector *connector,
 				struct drm_display_mode *mode)
 {
@@ -352,7 +354,6 @@ static enum drm_mode_status dsi_mgr_connector_mode_valid(struct drm_connector *c
 
 	return MODE_OK;
 }
-#endif
 static struct drm_encoder *
 dsi_mgr_connector_best_encoder(struct drm_connector *connector)
 {
@@ -362,7 +363,7 @@ dsi_mgr_connector_best_encoder(struct drm_connector *connector)
 	DBG("");
 	return msm_dsi_get_encoder(msm_dsi);
 }
-
+#endif
 static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
 {
 	int id = dsi_mgr_bridge_get_id(bridge);
@@ -618,11 +619,11 @@ static const struct drm_connector_funcs dsi_mgr_connector_funcs = {
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
-static const struct drm_connector_helper_funcs dsi_mgr_conn_helper_funcs = {
-	.get_modes = dsi_mgr_connector_get_modes,
-	//.mode_valid = dsi_mgr_connector_mode_valid,
-	.best_encoder = dsi_mgr_connector_best_encoder,
-};
+//static const struct drm_connector_helper_funcs dsi_mgr_conn_helper_funcs = {
+//	.get_modes = dsi_mgr_connector_get_modes,
+//	.mode_valid = dsi_mgr_connector_mode_valid,
+//	.best_encoder = dsi_mgr_connector_best_encoder,
+//};
 
 static const struct drm_bridge_funcs dsi_mgr_bridge_funcs = {
 	.pre_enable = dsi_mgr_bridge_pre_enable,
@@ -632,6 +633,7 @@ static const struct drm_bridge_funcs dsi_mgr_bridge_funcs = {
 	.mode_set = dsi_mgr_bridge_mode_set,
 };
 
+#if 0
 /* initialize connector when we're connected to a drm_panel */
 struct drm_connector *msm_dsi_manager_connector_init(u8 id)
 {
@@ -686,6 +688,7 @@ fail:
 out:
 	return connector;
 }
+#endif
 
 bool msm_dsi_manager_validate_current_config(u8 id)
 {

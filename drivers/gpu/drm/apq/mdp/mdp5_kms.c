@@ -39,7 +39,7 @@ void mdp5_read_hw_rev(struct mdp5_kms *mdp5_kms, u32 *major, u32 *minor)
 	*major = FIELD_GET(MDP5_HW_VERSION_MAJOR__MASK, rev);
 	*minor = FIELD_GET(MDP5_HW_VERSION_MINOR__MASK, rev);
 
-	dev_dbg(mdp5_kms->dev, "MDP5 Rev Major = %d, Minor = %d\n",
+	dev_info(mdp5_kms->dev, "MDP5 Rev Major = %d, Minor = %d\n",
 		*major, *minor);
 }
 
@@ -52,6 +52,7 @@ int mdp5_construct_encoder(struct mdp5_kms *mdp5_kms)
 	int ret;
 	struct drm_encoder *encoder;
 
+	drm_info(&apq_priv->ddev, "%s - %d\n", __func__, __LINE__);
 	encoder = mdp5_encoder_init(mdp5_kms);
 
 	apq_priv->encoder = encoder;
@@ -59,17 +60,36 @@ int mdp5_construct_encoder(struct mdp5_kms *mdp5_kms)
 	return 0;
 }
 
-int mdp5_init_intf(struct mdp5_kms *mdp_kms)
+int mdp5_init_intf_mipi(struct mdp5_kms *mdp5_kms)
+{
+	struct drm_device *ddev = mdp5_kms->ddev;
+	struct apq_drm_private *apq_priv = container_of(ddev,
+							struct apq_drm_private,
+							ddev);
+
+	drm_info(&apq_priv->ddev, "%s - %d\n", __func__, __LINE__);
+	msm_dsi_modeset_init(apq_priv->dsi, ddev, apq_priv->encoder);
+
+	return 0;
+}
+
+int mdp5_init_intf(struct mdp5_kms *mdp5_kms)
 {
 	int ret;
+	struct drm_device *ddev = mdp5_kms->ddev;
+	struct apq_drm_private *apq_priv = container_of(ddev,
+							struct apq_drm_private,
+							ddev);
 
-	ret = mdp5_construct_encoder(mdp_kms);
+	drm_info(&apq_priv->ddev, "%s - %d\n", __func__, __LINE__);
+	ret = mdp5_construct_encoder(mdp5_kms);
 	if (ret)
 		return ret;
 
-	//ret = mdp5_init_intf_mipi();
-	//if (ret)
-	//	return ret;
+	drm_info(&apq_priv->ddev, "%s - %d\n", __func__, __LINE__);
+	ret = mdp5_init_intf_mipi(mdp5_kms);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -78,7 +98,7 @@ int apq_modeset_init(struct apq_drm_private *priv)
 {
 	int ret;
 
-	drm_dbg(&priv->ddev, "%s - %d\n", __func__, __LINE__);
+	drm_info(&priv->ddev, "%s - %d\n", __func__, __LINE__);
 
 	ret = mdp5_init_intf(priv->mdp5_kms);
 	if (ret) {
@@ -103,7 +123,8 @@ int mdp5_pdev_probe(struct platform_device *pdev)
 	int ret;
 	phys_addr_t size;
 
-	dev_info(&pdev->dev, "APQ8016 HW has MDP5!\n");
+	pr_info("APQ8016 HW has MDP5!\n");
+	pr_info("%s - %d\n", __func__, __LINE__);
 
 	mdp5_kms = devm_kmalloc(&pdev->dev, sizeof(mdp5_kms), GFP_KERNEL);
 	if (!mdp5_kms)
@@ -126,6 +147,8 @@ int mdp5_pdev_probe(struct platform_device *pdev)
 	ret = apq_get_clk(pdev, &mdp5_kms->core_clk, "core");
 	if (ret)
 		return ret;
+
+	pr_info("%s - %d\n", __func__, __LINE__);
 
 	mdp5_enable(mdp5_kms);
 
@@ -160,6 +183,7 @@ static struct platform_driver mdp5_driver = {
 
 void apq_mdp_register(void)
 {
+	pr_info("%s - %d\n", __func__, __LINE__);
 	platform_driver_register(&mdp5_driver);
 }
 

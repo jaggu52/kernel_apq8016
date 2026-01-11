@@ -22,12 +22,20 @@ struct apq_drm_private {
 	struct mdp5_kms *mdp5_kms;
 	struct drm_encoder *encoder;
 	struct msm_dsi *dsi;
+
+        unsigned int num_bridges;                                               
+        struct drm_bridge *bridges;                                
+                                                                                
+        unsigned int num_connectors;                                            
+        struct drm_connector *connectors;
 };
 
 void apq_mdp_register(void);
 void apq_mdp_unregister(void);
 int apq_get_clk(struct platform_device *pdev, struct clk **clkp,
 		const char *name);
+int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
+			 struct drm_encoder *encoder);
 
 static inline struct clk* apq_clk_get(struct platform_device *pdev,
 				      const char *name)

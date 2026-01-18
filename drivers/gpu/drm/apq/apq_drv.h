@@ -60,9 +60,10 @@ static inline void __iomem *apq_ioremap_size(struct platform_device *pdev,
 }
 
 void apq_mdp5_get_kms(struct apq_drm_private *priv);
-int apq_modeset_init(struct apq_drm_private *priv);
+int apq_mdp5_modeset_init(struct apq_drm_private *priv);
 void msm_dsi_register(void);
 int apq_get_dsi(struct apq_drm_private *apq_priv);
 int apq_subdev_probe_done(struct device *dev);
+int apq_mdss_init(struct apq_drm_private *apq_priv);
 
 #endif

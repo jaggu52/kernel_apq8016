@@ -269,6 +269,8 @@ int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
 	struct drm_bridge *ext_bridge;
 	int ret;
 
+	pr_info("%s - %d\n", __func__, __LINE__);
+
 	if (WARN_ON(!encoder) || WARN_ON(!msm_dsi) || WARN_ON(!dev))
 	{
 		return -EINVAL;
@@ -291,6 +293,7 @@ int msm_dsi_modeset_init(struct msm_dsi *msm_dsi, struct drm_device *dev,
 
 	msm_dsi->encoder = encoder;
 
+	pr_info("%s - %d\n", __func__, __LINE__);
 	msm_dsi->bridge = msm_dsi_manager_bridge_init(msm_dsi->id);
 	if (IS_ERR(msm_dsi->bridge)) {
 		ret = PTR_ERR(msm_dsi->bridge);

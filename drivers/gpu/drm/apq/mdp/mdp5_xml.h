@@ -11,4 +11,7 @@
 #define MDP5_HW_VERSION_MAJOR__MASK				0xf0000000
 
 
+#define REG_MDP5_INTR_CLEAR                                     0x00000018
+#define REG_MDP5_INTR_EN                                        0x00000010
+
 #endif

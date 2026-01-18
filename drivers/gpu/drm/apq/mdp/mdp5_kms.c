@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
+#include <linux/of_irq.h>
 
 #include "apq_drv.h"
 #include "mdp5_kms.h"
@@ -29,6 +30,11 @@ int mdp5_enable(struct mdp5_kms *mdp5_kms)
 static inline u32 mdp5_readl(struct mdp5_kms *mdp5_kms, u32 addr)
 {
 	return apq_readl(mdp5_kms->mmio + addr);
+}
+
+static inline void mdp5_write(struct mdp5_kms *mdp5_kms, u32 addr, u32 data)
+{
+	apq_writel(data, mdp5_kms->mmio + addr);
 }
 
 void mdp5_read_hw_rev(struct mdp5_kms *mdp5_kms, u32 *major, u32 *minor)
@@ -94,7 +100,29 @@ int mdp5_init_intf(struct mdp5_kms *mdp5_kms)
 	return 0;
 }
 
-int apq_modeset_init(struct apq_drm_private *priv)
+static irqreturn_t mdp5_irq_handler(int irq, void *data)
+{
+	pr_info("%s - %d\n", __func__, __LINE__);
+
+	return IRQ_HANDLED;
+}
+
+int mdp5_irq_install(struct mdp5_kms *mdp5_kms)
+{
+	int ret;
+
+	mdp5_write(mdp5_kms, REG_MDP5_INTR_CLEAR, 0xffffffff);
+	mdp5_write(mdp5_kms, REG_MDP5_INTR_EN, 0xffffffff);
+
+	ret = request_irq(mdp5_kms->irq, mdp5_irq_handler, IRQF_TRIGGER_NONE,
+			  "apq_mdp5_irq", mdp5_kms->dev);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+int apq_mdp5_modeset_init(struct apq_drm_private *priv)
 {
 	int ret;
 
@@ -103,6 +131,13 @@ int apq_modeset_init(struct apq_drm_private *priv)
 	ret = mdp5_init_intf(priv->mdp5_kms);
 	if (ret) {
 		drm_err(&priv->ddev, "Failed to init intf - %d\n", ret);
+		return ret;
+	}
+
+	//install mdp5 irq here
+	ret = mdp5_irq_install(priv->mdp5_kms);
+	if (ret) {
+		pr_err("mdp5 irq install failed\n");
 		return ret;
 	}
 
@@ -115,6 +150,9 @@ void apq_mdp5_get_kms(struct apq_drm_private *priv)
 {
 	mdp5_kms->ddev = &priv->ddev;
 	priv->mdp5_kms = mdp5_kms;
+
+	mdp5_kms->irq = irq_of_parse_and_map(mdp5_kms->dev->of_node, 0);
+	pr_info("mdp5_kms->irq = %d\n", mdp5_kms->irq);
 }
 
 int mdp5_pdev_probe(struct platform_device *pdev)

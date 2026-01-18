@@ -47,7 +47,8 @@ void __iomem *apq_ioremap(struct platform_device *pdev, const char *name,
 		return ERR_PTR(-ENODEV);
 	}
 
-	*psize = size;
+	if (psize)
+		*psize = size;
 
 	dev_dbg(&pdev->dev,
 		 "IO:%s start = 0x%08llx - End = 0x%08llx mapped to 0x%p\n",
@@ -70,7 +71,7 @@ int apq_get_clk(struct platform_device *pdev, struct clk **clkp,
 
 static const struct drm_driver apq_driver = {
 	.driver_features = DRIVER_MODESET,
-	.name = "apq8016",
+	.name = "apq",
 	.desc = "Understanding drm driver",
 	.date = "20260102",
 	.major = 0,
@@ -97,13 +98,27 @@ static int apq_drm_init(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ddev);
 
+	apq_mdss_init(apq_priv);
+
+	//These are similar to mdp bind in msm driver
 	apq_mdp5_get_kms(apq_priv);
 
+	//These are similar to dsi bind in msm driver
 	apq_get_dsi(apq_priv);
 
-	apq_modeset_init(apq_priv);
-
+	/* Initialize @dev's mode_config structure.
+	 *
+	 * Since this initializes the modeset locks, no locking is possible. Which is no
+	 * problem, since this should happen single threaded at init time. It is the
+	 * driver's problem to ensure this guarantee.
+	 * This will init all drm imp list and initilizes to 0
+	 * Use this before starting modeset init
+	 */
 	ret = drmm_mode_config_init(ddev);
+	if (ret)
+		return ret;
+
+	ret = apq_mdp5_modeset_init(apq_priv);
 	if (ret)
 		return ret;
 

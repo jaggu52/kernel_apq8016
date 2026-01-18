@@ -14,6 +14,7 @@ struct mdp5_kms {
 	struct clk *core_clk;
 	void __iomem *mmio;
 	const struct mdp5_hw_cfg *mdp5_hw;
+	int irq;
 };
 
 struct drm_encoder *mdp5_encoder_init(struct mdp5_kms *mdp5_kms);

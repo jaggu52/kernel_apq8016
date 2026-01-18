@@ -716,6 +716,7 @@ struct drm_bridge *msm_dsi_manager_bridge_init(u8 id)
 	struct drm_encoder *encoder;
 	int ret = 0;
 
+	pr_info("%s - %d\n", __func__, __LINE__);
 
 	dsi_bridge = devm_kzalloc(msm_dsi->dev->dev,
 				sizeof(*dsi_bridge), GFP_KERNEL);
@@ -734,6 +735,8 @@ struct drm_bridge *msm_dsi_manager_bridge_init(u8 id)
 	ret = drm_bridge_attach(encoder, bridge, NULL, DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 	if (ret)
 		goto fail;
+
+	//msm_dsi_manager_tpg_enable();
 
 	return bridge;
 

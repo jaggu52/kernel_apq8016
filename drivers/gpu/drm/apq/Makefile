@@ -5,6 +5,7 @@ ccflags-$(CONFIG_DRM_MSM_DSI) += -I $(srctree)/$(src)/dsi
 
 apq-y := \
     	apq_drv.o \
+	apq_mdss.o \
 	mdp/mdp5_kms.o \
 	mdp/mdp5_cfg.o \
 	mdp/mdp5_encoder.o

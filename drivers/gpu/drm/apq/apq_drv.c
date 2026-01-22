@@ -14,6 +14,8 @@
 #include <linux/of_platform.h>
 #include <linux/atomic.h>
 
+#include <drm/drm_mode_config.h>
+#include <drm/drm_gem_framebuffer_helper.h>
 #include "apq_drv.h"
 
 u32 apq_readl(const void __iomem *addr)
@@ -69,6 +71,10 @@ int apq_get_clk(struct platform_device *pdev, struct clk **clkp,
 	return 0;
 }
 
+static const struct drm_mode_config_funcs apq_mode_config_funcs = {
+	.fb_create = drm_gem_fb_create,
+};
+
 static const struct drm_driver apq_driver = {
 	.driver_features = DRIVER_MODESET,
 	.name = "apq",
@@ -121,6 +127,8 @@ static int apq_drm_init(struct platform_device *pdev)
 	ret = apq_mdp5_modeset_init(apq_priv);
 	if (ret)
 		return ret;
+
+	ddev->mode_config.funcs = &apq_mode_config_funcs;
 
 	ret = drm_dev_register(ddev, 0);
 	if (ret)

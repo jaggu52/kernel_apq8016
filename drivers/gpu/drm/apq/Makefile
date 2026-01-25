@@ -8,7 +8,9 @@ apq-y := \
 	apq_mdss.o \
 	mdp/mdp5_kms.o \
 	mdp/mdp5_cfg.o \
-	mdp/mdp5_encoder.o
+	mdp/mdp5_encoder.o \
+	mdp/mdp5_plane.o \
+	mdp/mdp5_crtc.o
 
 apq-$(CONFIG_DRM_MSM_DSI) += dsi/dsi.o \
 			dsi/dsi_cfg.o \

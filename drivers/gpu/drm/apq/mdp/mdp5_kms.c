@@ -18,6 +18,8 @@
 #include "mdp5_kms.h"
 #include "mdp5_xml.h"
 #include "mdp5_cfg.h"
+#include "mdp5_plane.h"
+#include "mdp5_crtc.h"
 
 int mdp5_enable(struct mdp5_kms *mdp5_kms)
 {
@@ -133,6 +135,20 @@ int apq_mdp5_modeset_init(struct apq_drm_private *priv)
 		drm_err(&priv->ddev, "Failed to init intf - %d\n", ret);
 		return ret;
 	}
+
+	ret = mdp5_plane_init(priv);
+	if (ret) {
+		drm_err(&priv->ddev, "Failed to init plane - %d\n", ret);
+		return ret;
+	}
+
+	ret = mdp5_crtc_init(priv);
+	if (ret) {
+		drm_err(&priv->ddev, "Failed to init crtc - %d\n", ret);
+		return ret;
+	}
+
+	priv->encoder->possible_crtcs = 0x01;
 
 	//install mdp5 irq here
 	ret = mdp5_irq_install(priv->mdp5_kms);

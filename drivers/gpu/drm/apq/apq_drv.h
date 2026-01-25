@@ -28,6 +28,13 @@ struct apq_drm_private {
                                                                                 
         unsigned int num_connectors;                                            
         struct drm_connector *connectors;
+
+        unsigned int num_planes;                                            
+        struct drm_plane *planes;
+
+        unsigned int num_crtc;                                            
+        struct drm_plane *crtc;
+
 };
 
 void apq_mdp_register(void);

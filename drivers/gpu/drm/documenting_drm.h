@@ -529,7 +529,189 @@ SUMMARY
 - Page-flip events provide completion notification
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DRM CORE FUNCS vs HELPER FUNCS (NOTES)
+======================================
 
+BIG IDEA
+--------
+DRM/KMS has 2 layers of callbacks:
+
+1) CORE FUNCS    (mandatory contract with DRM core)
+2) HELPER FUNCS  (optional callbacks used by DRM helper code)
+
+Core funcs answer: "What operations exist and how does core manage objects?"
+Helper funcs answer: "How do we actually program HW for atomic modeset?"
+
+If core funcs are missing -> driver will not work.
+If helper funcs are missing -> driver can still work, but you must implement
+much more logic yourself (sequencing, commit flow, etc).
+
+
+WHO CALLS WHAT
+--------------
+CORE FUNCS:
+- called directly by DRM core (ioctl paths, object lifetime, vblank core)
+
+HELPER FUNCS:
+- called by DRM helper libraries
+  (drm_atomic_helper_*, drm_plane_helper_*, drm_crtc_helper_*)
+
+
+WHERE TO PUT HARDWARE PROGRAMMING
+--------------------------------
+- atomic_check(): validate only, no register writes
+- hardware register programming typically happens in:
+  * plane_helper.atomic_update()
+  * crtc_helper.atomic_enable()/atomic_disable()/atomic_flush()
+  * or driver-specific commit_tail around drm_atomic_helper_commit_tail()
+
+Core funcs are not the place for most register programming. They are the
+framework integration points and object/state management.
+
+
+drm_plane_funcs vs drm_plane_helper_funcs
+=========================================
+
+drm_plane_funcs (CORE, mandatory for a plane)
+---------------------------------------------
+Purpose:
+- object lifetime and DRM core interface
+Typical members:
+- update_plane / disable_plane (legacy path)
+- destroy
+- reset
+- atomic_duplicate_state
+- atomic_destroy_state
+- atomic_set_property / atomic_get_property (or property helpers)
+
+Called by:
+- DRM core (legacy ioctls and state management)
+
+What you do here:
+- implement state allocation/copy/free (atomic_*_state)
+- provide legacy hooks if you support legacy
+- integrate with DRM core object model
+
+Rule of thumb:
+- Treat as "API contract + state/lifecycle"
+
+
+drm_plane_helper_funcs (HELPER, optional but recommended)
+---------------------------------------------------------
+Purpose:
+- atomic helper programming for the plane
+Typical members:
+- atomic_check   : validate plane state
+- atomic_update  : program plane registers (fb addr, stride, format, src/dst)
+- atomic_disable : disable plane in HW
+
+Called by:
+- drm_atomic_helper_commit_tail() / atomic helpers, not the DRM core directly
+
+What you do here:
+- real plane HW programming (most common place)
+- format/stride/scaling checks (in atomic_check)
+
+
+Atomic flow (plane relevant, simplified):
+-----------------------------------------
+drmModeAtomicCommit()
+  -> drm_atomic_helper_commit()
+     -> plane_helper.atomic_check()
+     -> ...
+     -> drm_atomic_helper_commit_tail()
+        -> plane_helper.atomic_update() / atomic_disable()
+
+
+TL;DR (plane)
+-------------
+drm_plane_funcs        = plane object + state/lifetime + legacy integration
+drm_plane_helper_funcs = atomic helper plane programming (HW update/disable)
+
+
+drm_crtc_funcs vs drm_crtc_helper_funcs
+=======================================
+
+drm_crtc_funcs (CORE, mandatory for a CRTC)
+-------------------------------------------
+Purpose:
+- core contract for CRTC object and vblank integration
+Typical members:
+- destroy
+- reset
+- set_config (legacy)
+- page_flip (legacy)
+- atomic_duplicate_state
+- atomic_destroy_state
+- enable_vblank / disable_vblank
+- get_vblank_counter (optional)
+
+Called by:
+- DRM core
+
+What you do here:
+- manage CRTC state objects (duplicate/destroy/reset)
+- implement vblank enable/disable hooks for your hardware interrupt logic
+- legacy set_config/page_flip only if needed
+
+
+drm_crtc_helper_funcs (HELPER, optional but recommended)
+--------------------------------------------------------
+Purpose:
+- atomic helper programming for CRTC pipeline and modeset sequencing
+Typical members:
+- atomic_check
+- atomic_begin     (optional)
+- atomic_enable    (turn on pipeline, clocks, timing generator)
+- atomic_disable   (turn off pipeline)
+- atomic_flush     (kick/commit updates, arm vblank/pageflip event)
+- mode_valid       (validate mode against HW limits)
+
+Called by:
+- atomic helpers (commit_tail sequencing)
+
+What you do here:
+- program CRTC mode/timings
+- enable/disable display pipeline blocks
+- handle flush/event arming ordering (often where pageflip completes)
+
+
+Atomic flow (CRTC relevant, simplified):
+----------------------------------------
+drmModeAtomicCommit()
+  -> drm_atomic_helper_commit()
+     -> crtc_helper.atomic_check()
+     -> ...
+     -> drm_atomic_helper_commit_tail()
+        -> crtc_helper.atomic_disable() (old)
+        -> crtc_helper.atomic_enable()  (new)
+        -> plane_helper.atomic_update()
+        -> crtc_helper.atomic_flush()
+
+
+TL;DR (crtc)
+------------
+drm_crtc_funcs        = CRTC object + state/lifetime + vblank core hooks
+drm_crtc_helper_funcs = atomic helper modeset + enable/disable + flush sequence
+
+
+ONE-LINE MEMORY
+---------------
+Core funcs   = "DRM core interface + state/lifecycle"
+Helper funcs = "Atomic helper sequencing + real HW programming"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Drivers must define the file operations structure that forms the DRM         
+ * userspace API entry point, even though most of those operations are          
+ * implemented in the DRM core. The resulting &struct file_operations must be   
+ * stored in the &drm_driver.fops field. The mandatory functions are drm_open(),
+ * drm_read(), drm_ioctl() and drm_compat_ioctl()
+
+drm_driver.open()
+*
+* Driver callback when a new &struct drm_file is opened. Useful for
+* setting up driver-private data structures like buffer allocators,
+	* execution contexts or similar things.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * The driver must protect regions that is accessing device resources to prevent use after they’re released. This is done using drm_dev_enter() and drm_dev_exit()
 Todo
 drm_dev_enter(), drm_dev_exit()?

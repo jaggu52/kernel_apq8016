@@ -1,4 +1,4 @@
-make -j4 O=build Image.gz modules dtbs PERL=/usr/bin/perl
+time make -j4 O=build Image.gz modules dtbs PERL=/usr/bin/perl
 sync
 cat build/arch/$ARCH/boot/Image.gz build/arch/$ARCH/boot/dts/qcom/apq8016-sbc.dtb > build/Image.gz+dtb
 sync

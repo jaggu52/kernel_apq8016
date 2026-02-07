@@ -7,6 +7,9 @@
  */
 
 #include <drm/drm_drv.h>
+#include <drm/drm_gem.h>
+#include <drm/drm_file.h>
+#include <drm/drm_ioctl.h>
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -75,13 +78,25 @@ static const struct drm_mode_config_funcs apq_mode_config_funcs = {
 	.fb_create = drm_gem_fb_create,
 };
 
+
+static int apq_open(struct drm_device *ddev, struct drm_file *dfile)
+{
+	pr_info("%s - %d\n", __func__, __LINE__);
+
+	return 0;
+}
+
+DEFINE_DRM_GEM_FOPS(fops);
+
 static const struct drm_driver apq_driver = {
-	.driver_features = DRIVER_MODESET,
+	.driver_features = DRIVER_MODESET | DRIVER_GEM,
 	.name = "apq",
 	.desc = "Understanding drm driver",
 	.date = "20260102",
 	.major = 0,
 	.minor = 1,
+	.open = apq_open,
+	.fops = &fops,
 };
 
 static struct platform_device *apq_master_pdev;

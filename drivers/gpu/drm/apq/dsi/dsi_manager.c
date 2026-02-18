@@ -497,6 +497,8 @@ static void dsi_mgr_bridge_enable(struct drm_bridge *bridge)
 		}
 	}
 
+	msm_dsi_manager_tpg_enable();
+
 out:
 	return;
 }
@@ -735,8 +737,6 @@ struct drm_bridge *msm_dsi_manager_bridge_init(u8 id)
 	ret = drm_bridge_attach(encoder, bridge, NULL, DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 	if (ret)
 		goto fail;
-
-	//msm_dsi_manager_tpg_enable();
 
 	return bridge;
 

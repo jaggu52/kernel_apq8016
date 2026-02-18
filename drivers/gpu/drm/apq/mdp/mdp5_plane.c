@@ -17,9 +17,22 @@
 #include "mdp5_cfg.h"
 #include "mdp5_plane.h"
 
-const struct drm_plane_funcs mdp5_plane_funcs = {
+static const struct drm_plane_funcs mdp5_plane_funcs = {
+	.reset = drm_atomic_helper_plane_reset,
 	.update_plane = drm_atomic_helper_update_plane,
 	.destroy = drm_plane_cleanup,
+	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
+};
+
+static void apq_plane_atomic_update(struct drm_plane *plane,
+				       struct drm_atomic_state *state)
+{
+
+}
+
+static const struct drm_plane_helper_funcs apq_plane_helper_funcs = {
+	.atomic_update = apq_plane_atomic_update,
 };
 
 int mdp5_plane_init(struct apq_drm_private *priv)
@@ -31,7 +44,7 @@ int mdp5_plane_init(struct apq_drm_private *priv)
 	mdp5_plane = kzalloc(sizeof(struct mdp5_plane), GFP_KERNEL);
 
 	plane = &mdp5_plane->base;
-	mdp5_plane->formats[0] = DRM_FORMAT_XBGR8888;
+	mdp5_plane->formats[0] = DRM_FORMAT_XRGB8888;
 	mdp5_plane->nformats = 1;
 
 	ret = drm_universal_plane_init(&priv->ddev, plane, 0xff,
@@ -44,6 +57,8 @@ int mdp5_plane_init(struct apq_drm_private *priv)
 	}
 
 	priv->planes = plane;
+
+	drm_plane_helper_add(plane, &apq_plane_helper_funcs);
 
 	return 0;
 }

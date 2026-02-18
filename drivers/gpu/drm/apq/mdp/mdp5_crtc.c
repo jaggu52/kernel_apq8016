@@ -7,6 +7,7 @@
  */
 
 #include <drm/drm_device.h>
+#include <drm/drm_atomic_helper.h>
 #include <drm/drm_print.h>
 #include <linux/bitfield.h>
 
@@ -27,6 +28,13 @@ static void mdp5_crtc_destroy(struct drm_crtc *crtc)
 
 const struct drm_crtc_funcs mdp5_crtc_funcs = {
 	.destroy = mdp5_crtc_destroy,
+	.set_config = drm_atomic_helper_set_config,
+	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
+	.reset = drm_atomic_helper_crtc_reset,
+	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
+};
+
+static const struct drm_crtc_helper_funcs apq_crtc_helper_funcs = {
 };
 
 int mdp5_crtc_init(struct apq_drm_private *priv)
@@ -41,6 +49,8 @@ int mdp5_crtc_init(struct apq_drm_private *priv)
 
 	ret = drm_crtc_init_with_planes(&priv->ddev, crtc, priv->planes,
 					NULL, &mdp5_crtc_funcs, "mdp5_crtc");
+
+	drm_crtc_helper_add(crtc, &apq_crtc_helper_funcs);
 
 	return 0;
 }

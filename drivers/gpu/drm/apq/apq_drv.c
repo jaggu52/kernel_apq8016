@@ -11,6 +11,7 @@
 #include <drm/drm_file.h>
 #include <drm/drm_ioctl.h>
 #include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_atomic_helper.h>
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -77,6 +78,8 @@ int apq_get_clk(struct platform_device *pdev, struct clk **clkp,
 
 static const struct drm_mode_config_funcs apq_mode_config_funcs = {
 	.fb_create = drm_gem_fb_create,
+	.atomic_check = drm_atomic_helper_check,
+	.atomic_commit = drm_atomic_helper_commit,
 };
 
 

@@ -180,7 +180,7 @@ int mdp5_pdev_probe(struct platform_device *pdev)
 	pr_info("APQ8016 HW has MDP5!\n");
 	pr_info("%s - %d\n", __func__, __LINE__);
 
-	mdp5_kms = devm_kmalloc(&pdev->dev, sizeof(mdp5_kms), GFP_KERNEL);
+	mdp5_kms = devm_kmalloc(&pdev->dev, sizeof(*mdp5_kms), GFP_KERNEL);
 	if (!mdp5_kms)
 		return -ENOMEM;
 

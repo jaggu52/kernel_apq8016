@@ -10,6 +10,7 @@
 #include <drm/drm_gem.h>
 #include <drm/drm_file.h>
 #include <drm/drm_ioctl.h>
+#include <drm/drm_gem_cma_helper.h>
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -97,6 +98,7 @@ static const struct drm_driver apq_driver = {
 	.minor = 1,
 	.open = apq_open,
 	.fops = &fops,
+	DRM_GEM_CMA_DRIVER_OPS,
 };
 
 static struct platform_device *apq_master_pdev;
@@ -144,6 +146,10 @@ static int apq_drm_init(struct platform_device *pdev)
 		return ret;
 
 	ddev->mode_config.funcs = &apq_mode_config_funcs;
+	ddev->mode_config.min_width = 0;
+	ddev->mode_config.min_height = 0;
+	ddev->mode_config.max_width = 0xffff;
+	ddev->mode_config.max_height = 0xffff;
 
 	ret = drm_dev_register(ddev, 0);
 	if (ret)
